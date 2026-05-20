@@ -1,0 +1,21 @@
+{
+    "mcpServers": {
+        "laravel-boost": {
+            "command": "wsl.exe",
+            "args": [
+                "/usr/bin/php8.4",
+                "/var/www/mcp-test/artisan",
+                "boost:mcp"
+            ]
+        },
+        "redmine": {
+            "command": "wsl.exe",
+            "args": [
+                "/usr/bin/php8.4",
+                "/var/www/mcp-test/artisan",
+                "mcp:start",
+                "redmine"
+            ]
+        }
+    }
+}
