@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Mcp\Tools;
 
+use App\Mcp\Concerns\CastsApiData;
 use App\Services\RedmineService;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
@@ -17,32 +18,36 @@ use Throwable;
 #[IsReadOnly]
 final class CheckUnloggedUsersTool extends Tool
 {
-    /**
-     * @param Request $request
-     * @param RedmineService $redmine
-     * @return Response
-     */
+    use CastsApiData;
+
     public function handle(Request $request, RedmineService $redmine): Response
     {
         try {
-            $validated = $request->validate([
+            $request->validate([
                 'date' => ['nullable', 'date_format:Y-m-d'],
                 'project_id' => ['nullable', 'integer', 'min:1'],
             ]);
 
-            $date = $validated['date'] ?? now()->subDay()->toDateString();
+            $date = $request->filled('date') ? $request->string('date')->toString() : now()->subDay()->toDateString();
 
             $allUsers = $redmine->getUsers();
             $timeLogs = $redmine->getTimeLogsByDate($date);
 
-            $loggedUserIds = array_unique(
-                array_map(fn (array $entry): mixed => $entry['user']['id'] ?? null, $timeLogs)
-            );
-            $loggedUserIds = array_filter($loggedUserIds);
+            $loggedUserIds = [];
+
+            foreach ($timeLogs as $entry) {
+                $userId = $this->intOf(data_get($entry, 'user.id'));
+
+                if ($userId > 0) {
+                    $loggedUserIds[] = $userId;
+                }
+            }
+
+            $loggedUserIds = array_unique($loggedUserIds);
 
             $unlogged = array_filter(
                 $allUsers,
-                fn (array $user): bool => ! in_array($user['id'], $loggedUserIds, true)
+                fn (array $user): bool => ! in_array($this->intOf($user['id']), $loggedUserIds, true)
             );
 
             if ($unlogged === []) {
@@ -50,7 +55,12 @@ final class CheckUnloggedUsersTool extends Tool
             }
 
             $names = array_map(
-                fn (array $u): string => sprintf('• %s %s (ID: %s)', $u['firstname'], $u['lastname'], $u['id']),
+                fn (array $u): string => sprintf(
+                    '• %s %s (ID: %d)',
+                    $this->strOf($u['firstname'] ?? ''),
+                    $this->strOf($u['lastname'] ?? ''),
+                    $this->intOf($u['id']),
+                ),
                 array_values($unlogged)
             );
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Mcp\Tools;
 
+use App\Mcp\Concerns\CastsApiData;
 use App\Mcp\Concerns\ResolvesRedmineUser;
 use App\Services\RedmineService;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -18,20 +19,21 @@ use Throwable;
 #[IsReadOnly]
 final class GetMyTimesTool extends Tool
 {
+    use CastsApiData;
     use ResolvesRedmineUser;
 
     public function handle(Request $request, RedmineService $redmine): Response
     {
         try {
-            $validated = $request->validate([
+            $request->validate([
                 'redmine_user_id' => ['nullable', 'integer', 'min:1'],
                 'date_from' => ['nullable', 'date_format:Y-m-d'],
                 'date_to' => ['nullable', 'date_format:Y-m-d'],
             ]);
 
             $redmineUserId = $this->resolveRedmineUserId($request, $redmine);
-            $dateFrom = $validated['date_from'] ?? now()->startOfWeek()->toDateString();
-            $dateTo = $validated['date_to'] ?? now()->toDateString();
+            $dateFrom = $request->filled('date_from') ? $request->string('date_from')->toString() : now()->startOfWeek()->toDateString();
+            $dateTo = $request->filled('date_to') ? $request->string('date_to')->toString() : now()->toDateString();
 
             $entries = $redmine->getUserTimeLogs($redmineUserId, $dateFrom, $dateTo);
 
@@ -43,12 +45,12 @@ final class GetMyTimesTool extends Tool
             $lines = ["Time entries from {$dateFrom} to {$dateTo} (total: {$totalHours}h):\n"];
 
             foreach ($entries as $entry) {
-                $issueId = $entry['issue']['id'] ?? 'N/A';
-                $hours = $entry['hours'] ?? 0;
-                $date = $entry['spent_on'] ?? '';
-                $comment = $entry['comments'] ?? '';
-                $activity = $entry['activity']['name'] ?? '';
-                $lines[] = sprintf('• [%s] Issue #%s — %sh (%s): %s', $date, $issueId, $hours, $activity, $comment);
+                $issueId = $this->intOf(data_get($entry, 'issue.id'));
+                $hours = $this->floatOf($entry['hours'] ?? 0);
+                $date = $this->strOf($entry['spent_on'] ?? '');
+                $comment = $this->strOf($entry['comments'] ?? '');
+                $activity = $this->strOf(data_get($entry, 'activity.name'));
+                $lines[] = sprintf('• [%s] Issue #%d — %sh (%s): %s', $date, $issueId, $hours, $activity, $comment);
             }
 
             return Response::text(implode("\n", $lines));
@@ -57,6 +59,9 @@ final class GetMyTimesTool extends Tool
         }
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function schema(JsonSchema $schema): array
     {
         return [

@@ -18,6 +18,7 @@ final class InjectRedmineApiKey
             config(['redmine.api_key' => $apiKey]);
         }
 
+        /** @var Response */
         return $next($request);
     }
 }

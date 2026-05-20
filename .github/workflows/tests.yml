@@ -61,5 +61,8 @@ jobs:
       - name: Create Cache Directories
         run: mkdir -p /tmp/rector /tmp/phpstan
 
+      - name: Security audit
+        run: composer audit
+
       - name: Tests
         run: composer test

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Mcp\Tools;
 
+use App\Mcp\Concerns\CastsApiData;
 use App\Services\RedmineService;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
@@ -15,15 +16,12 @@ use Throwable;
 #[Description('Create a new issue (task) in a Redmine project.')]
 final class CreateIssueTool extends Tool
 {
-    /**
-     * @param Request $request
-     * @param RedmineService $redmine
-     * @return Response
-     */
+    use CastsApiData;
+
     public function handle(Request $request, RedmineService $redmine): Response
     {
         try {
-            $validated = $request->validate([
+            $request->validate([
                 'project_id' => ['required', 'integer', 'min:1'],
                 'subject' => ['required', 'string', 'max:255'],
                 'description' => ['nullable', 'string'],
@@ -32,21 +30,21 @@ final class CreateIssueTool extends Tool
             ]);
 
             $issue = $redmine->createIssue(
-                (int) $validated['project_id'],
-                $validated['subject'],
-                $validated['description'] ?? '',
-                isset($validated['assigned_to_id']) ? (int) $validated['assigned_to_id'] : null,
-                isset($validated['priority_id']) ? (int) $validated['priority_id'] : null,
+                $request->integer('project_id'),
+                $request->string('subject')->toString(),
+                $request->filled('description') ? $request->string('description')->toString() : '',
+                $request->filled('assigned_to_id') ? $request->integer('assigned_to_id') : null,
+                $request->filled('priority_id') ? $request->integer('priority_id') : null,
             );
 
-            $id = $issue['id'] ?? 'N/A';
-            $baseUrl = mb_rtrim((string) config('redmine.base_url'), '/');
-            $url = sprintf('%s/issues/%s', $baseUrl, $id);
+            $id = $this->intOf($issue['id']);
+            $baseUrl = $this->strOf(config('redmine.base_url'));
+            $url = sprintf('%s/issues/%d', mb_rtrim($baseUrl, '/'), $id);
 
             return Response::text(
                 "Issue created successfully.\n".
-                sprintf('ID: #%s%s', $id, PHP_EOL).
-                sprintf('Subject: %s%s', $validated['subject'], PHP_EOL).
+                sprintf('ID: #%d%s', $id, PHP_EOL).
+                sprintf('Subject: %s%s', $request->string('subject')->toString(), PHP_EOL).
                 ('URL: '.$url)
             );
         } catch (Throwable $throwable) {

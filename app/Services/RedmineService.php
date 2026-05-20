@@ -5,14 +5,9 @@ declare(strict_types=1);
 namespace App\Services;
 
 use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\Response;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 use RuntimeException;
-use Throwable;
 
-final readonly class RedmineService
+final readonly class RedmineService extends AbstractHttpService
 {
     private string $baseUrl;
 
@@ -20,19 +15,17 @@ final readonly class RedmineService
 
     public function __construct()
     {
-        $this->baseUrl = mb_rtrim((string) config('redmine.base_url'), '/');
-        $this->apiKey = (string) config('redmine.api_key');
+        $baseUrl = config('redmine.base_url');
+        $apiKey = config('redmine.api_key');
+        $this->baseUrl = mb_rtrim(is_string($baseUrl) ? $baseUrl : '', '/');
+        $this->apiKey = is_string($apiKey) ? $apiKey : '';
     }
 
     /**
-     * @param int $issueId
-     * @param float $hours
-     * @param string $comment
-     * @param string|null $date
-     * @param int|null $activityId
-     * @param int|null $userId
      * @return array<string, mixed>
+     *
      * @throws ConnectionException
+     * @throws RuntimeException
      */
     public function logTime(int $issueId, float $hours, string $comment, ?string $date = null, ?int $activityId = null, ?int $userId = null): array
     {
@@ -47,66 +40,54 @@ final readonly class RedmineService
             ], fn (float|string|int|null $v): bool => $v !== null),
         ];
 
-        $this->log('POST', '/time_entries.json', $payload);
+        $response = $this->post('/time_entries.json', $payload);
+        $this->assertSuccessful(__FUNCTION__, $response);
 
-        $response = $this->http()->post($this->url('/time_entries.json'), $payload);
-
-        if (! $response->successful()) {
-            $this->throw('logTime', $response);
-        }
-
-        return $response->json('time_entry') ?? [];
+        return $this->jsonObject($response, 'time_entry');
     }
 
     /**
      * @return list<array<string, mixed>>
      *
      * @throws ConnectionException
+     * @throws RuntimeException
      */
     public function getUserTimeLogs(int $redmineUserId, string $dateFrom, string $dateTo): array
     {
-        $this->log('GET', '/time_entries.json', ['redmineUserId' => $redmineUserId, 'dateFrom' => $dateFrom, 'dateTo' => $dateTo]);
-
-        $response = $this->http()->get($this->url('/time_entries.json'), [
+        $response = $this->get('/time_entries.json', [
             'user_id' => $redmineUserId,
             'from' => $dateFrom,
             'to' => $dateTo,
             'limit' => 100,
         ]);
+        $this->assertSuccessful(__FUNCTION__, $response);
 
-        if (! $response->successful()) {
-            $this->throw('getUserTimeLogs', $response);
-        }
-
-        return $response->json('time_entries') ?? [];
+        return $this->jsonList($response, 'time_entries');
     }
 
     /**
      * @return list<array<string, mixed>>
      *
      * @throws ConnectionException
+     * @throws RuntimeException
      */
     public function getAssignedIssues(int $redmineUserId, string $status = 'open'): array
     {
-        $this->log('GET', '/issues.json', ['redmineUserId' => $redmineUserId, 'status' => $status]);
-
-        $response = $this->http()->get($this->url('/issues.json'), [
+        $response = $this->get('/issues.json', [
             'assigned_to_id' => $redmineUserId,
             'status_id' => $status,
             'limit' => 100,
         ]);
+        $this->assertSuccessful(__FUNCTION__, $response);
 
-        if (! $response->successful()) {
-            $this->throw('getAssignedIssues', $response);
-        }
-
-        return $response->json('issues') ?? [];
+        return $this->jsonList($response, 'issues');
     }
 
     /**
      * @return array<string, mixed>
      *
      * @throws ConnectionException
+     * @throws RuntimeException
      */
     public function createIssue(int $projectId, string $subject, string $description = '', ?int $assignedToId = null, ?int $priorityId = null): array
     {
@@ -120,36 +101,24 @@ final readonly class RedmineService
             ], fn (string|int|null $v): bool => $v !== null && $v !== ''),
         ];
 
-        $this->log('POST', '/issues.json', $payload);
+        $response = $this->post('/issues.json', $payload);
+        $this->assertSuccessful(__FUNCTION__, $response);
 
-        $response = $this->http()->post($this->url('/issues.json'), $payload);
-
-        if (! $response->successful()) {
-            $this->throw('createIssue', $response);
-        }
-
-        return $response->json('issue') ?? [];
+        return $this->jsonObject($response, 'issue');
     }
 
     /**
      * @return array{issue_id: int, status_id: int}
      *
      * @throws ConnectionException
-     * @throws Throwable
+     * @throws RuntimeException
      */
     public function updateIssueStatus(int $issueId, int $statusId): array
     {
-        $payload = ['issue' => ['status_id' => $statusId]];
-
-        $this->log('PUT', sprintf('/issues/%d.json', $issueId), $payload);
-
-        $response = $this->http()->put($this->url(sprintf('/issues/%d.json', $issueId)), $payload);
+        $response = $this->put(sprintf('/issues/%d.json', $issueId), ['issue' => ['status_id' => $statusId]]);
 
         throw_if($response->status() === 404, RuntimeException::class, sprintf('updateIssueStatus: Issue #%d not found.', $issueId));
-
-        if (! $response->successful()) {
-            $this->throw('updateIssueStatus', $response);
-        }
+        $this->assertSuccessful(__FUNCTION__, $response);
 
         return ['issue_id' => $issueId, 'status_id' => $statusId];
     }
@@ -159,6 +128,7 @@ final readonly class RedmineService
      * @return list<array<string, mixed>>
      *
      * @throws ConnectionException
+     * @throws RuntimeException
      */
     public function getProjectIssues(int $projectId, array $filters = []): array
     {
@@ -168,195 +138,152 @@ final readonly class RedmineService
         ], array_filter([
             'status_id' => $filters['status'] ?? 'open',
             'assigned_to_id' => $filters['assigned_to_id'] ?? null,
-        ], fn ($v): bool => $v !== null));
+        ], fn (mixed $v): bool => $v !== null));
 
-        $this->log('GET', '/issues.json', $params);
+        $response = $this->get('/issues.json', $params);
+        $this->assertSuccessful(__FUNCTION__, $response);
 
-        $response = $this->http()->get($this->url('/issues.json'), $params);
-
-        if (! $response->successful()) {
-            $this->throw('getProjectIssues', $response);
-        }
-
-        return $response->json('issues') ?? [];
+        return $this->jsonList($response, 'issues');
     }
 
     /**
      * @return list<array<string, mixed>>
      *
      * @throws ConnectionException
+     * @throws RuntimeException
      */
     public function getUsers(): array
     {
-        $this->log('GET', '/users.json');
+        $response = $this->get('/users.json', ['limit' => 100, 'status' => 1]);
+        $this->assertSuccessful(__FUNCTION__, $response);
 
-        $response = $this->http()->get($this->url('/users.json'), ['limit' => 100, 'status' => 1]);
-
-        if (! $response->successful()) {
-            $this->throw('getUsers', $response);
-        }
-
-        return $response->json('users') ?? [];
+        return $this->jsonList($response, 'users');
     }
 
     /**
      * @return list<array<string, mixed>>
      *
      * @throws ConnectionException
+     * @throws RuntimeException
      */
     public function getTimeLogsByDate(string $date): array
     {
-        $this->log('GET', '/time_entries.json', ['date' => $date]);
+        $response = $this->get('/time_entries.json', ['from' => $date, 'to' => $date, 'limit' => 100]);
+        $this->assertSuccessful(__FUNCTION__, $response);
 
-        $response = $this->http()->get($this->url('/time_entries.json'), [
-            'from' => $date,
-            'to' => $date,
-            'limit' => 100,
-        ]);
-
-        if (! $response->successful()) {
-            $this->throw('getTimeLogsByDate', $response);
-        }
-
-        return $response->json('time_entries') ?? [];
+        return $this->jsonList($response, 'time_entries');
     }
 
     /**
      * @return array<int, string>
      *
      * @throws ConnectionException
+     * @throws RuntimeException
      */
     public function getIssueStatuses(): array
     {
-        $this->log('GET', '/issue_statuses.json');
+        $response = $this->get('/issue_statuses.json');
+        $this->assertSuccessful(__FUNCTION__, $response);
 
-        $response = $this->http()->get($this->url('/issue_statuses.json'));
+        $data = $this->jsonList($response, 'issue_statuses');
 
-        if (! $response->successful()) {
-            $this->throw('getIssueStatuses', $response);
-        }
-
-        // Return as id => name map
-        return array_column($response->json('issue_statuses') ?? [], 'name', 'id');
+        /** @var array<int, string> */
+        return array_column($data, 'name', 'id');
     }
 
     /**
      * @return array<int, string>
      *
      * @throws ConnectionException
+     * @throws RuntimeException
      */
     public function getIssuePriorities(): array
     {
-        $this->log('GET', '/enumerations/issue_priorities.json');
+        $response = $this->get('/enumerations/issue_priorities.json');
+        $this->assertSuccessful(__FUNCTION__, $response);
 
-        $response = $this->http()->get($this->url('/enumerations/issue_priorities.json'));
+        $data = $this->jsonList($response, 'issue_priorities');
 
-        if (! $response->successful()) {
-            $this->throw('getIssuePriorities', $response);
-        }
-
-        return array_column($response->json('issue_priorities') ?? [], 'name', 'id');
+        /** @var array<int, string> */
+        return array_column($data, 'name', 'id');
     }
 
     /**
      * @return list<array<string, mixed>>
      *
      * @throws ConnectionException
+     * @throws RuntimeException
      */
     public function getTimeEntryActivities(): array
     {
-        $this->log('GET', '/enumerations/time_entry_activities.json');
+        $response = $this->get('/enumerations/time_entry_activities.json');
+        $this->assertSuccessful(__FUNCTION__, $response);
 
-        $response = $this->http()->get($this->url('/enumerations/time_entry_activities.json'));
-
-        if (! $response->successful()) {
-            $this->throw('getTimeEntryActivities', $response);
-        }
-
-        return $response->json('time_entry_activities') ?? [];
+        return $this->jsonList($response, 'time_entry_activities');
     }
 
     /**
      * @return list<array<string, mixed>>
      *
      * @throws ConnectionException
+     * @throws RuntimeException
      */
     public function getProjects(): array
     {
-        $this->log('GET', '/projects.json');
+        $response = $this->get('/projects.json', ['limit' => 100]);
+        $this->assertSuccessful(__FUNCTION__, $response);
 
-        $response = $this->http()->get($this->url('/projects.json'), ['limit' => 100]);
-
-        if (! $response->successful()) {
-            $this->throw('getProjects', $response);
-        }
-
-        return $response->json('projects') ?? [];
+        return $this->jsonList($response, 'projects');
     }
 
     /**
      * @return array<string, mixed>
      *
      * @throws ConnectionException
-     * @throws Throwable
+     * @throws RuntimeException
      */
     public function getIssue(int $issueId, bool $withJournals = false): array
     {
-        $params = $withJournals ? ['include' => 'journals'] : [];
-
-        $this->log('GET', sprintf('/issues/%d.json', $issueId), $params);
-
-        $response = $this->http()->get($this->url(sprintf('/issues/%d.json', $issueId)), $params);
+        $response = $this->get(
+            sprintf('/issues/%d.json', $issueId),
+            $withJournals ? ['include' => 'journals'] : [],
+        );
 
         throw_if($response->status() === 404, RuntimeException::class, sprintf('getIssue: Issue #%d not found.', $issueId));
+        $this->assertSuccessful(__FUNCTION__, $response);
 
-        if (! $response->successful()) {
-            $this->throw('getIssue', $response);
-        }
-
-        return $response->json('issue') ?? [];
+        return $this->jsonObject($response, 'issue');
     }
 
     /**
      * @return array<string, mixed>
      *
      * @throws ConnectionException
+     * @throws RuntimeException
      */
     public function getCurrentUser(): array
     {
-        $this->log('GET', '/users/current.json');
+        $response = $this->get('/users/current.json');
+        $this->assertSuccessful(__FUNCTION__, $response);
 
-        $response = $this->http()->get($this->url('/users/current.json'));
-
-        if (! $response->successful()) {
-            $this->throw('getCurrentUser', $response);
-        }
-
-        return $response->json('user') ?? [];
+        return $this->jsonObject($response, 'user');
     }
 
-    private function http(): PendingRequest
+    protected function apiBaseUrl(): string
     {
-        return Http::timeout(10)
-            ->withHeaders(['X-Redmine-API-Key' => $this->apiKey])
-            ->acceptJson();
+        return $this->baseUrl;
     }
 
-    private function url(string $path): string
+    /**
+     * @return array<string, string>
+     */
+    protected function apiHeaders(): array
     {
-        return $this->baseUrl.$path;
+        return ['X-Redmine-API-Key' => $this->apiKey];
     }
 
-    /** @param array<string, mixed> $params */
-    private function log(string $method, string $path, array $params = []): void
+    protected function apiLogChannel(): string
     {
-        Log::channel('redmine')->debug(sprintf('Redmine %s %s', $method, $path), $params);
-    }
-
-    private function throw(string $context, Response $response): never
-    {
-        $errors = $response->json('errors');
-        $body = is_array($errors) ? implode(', ', $errors) : ($errors ?? $response->body());
-        throw new RuntimeException(sprintf('%s: HTTP %d — %s', $context, $response->status(), $body));
+        return 'redmine';
     }
 }
