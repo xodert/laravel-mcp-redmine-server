@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Mcp\Tools;
 
+use App\Mcp\Concerns\CastsApiData;
 use App\Services\RedmineService;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
@@ -19,27 +20,24 @@ use Throwable;
 )]
 final class UpdateIssueStatusTool extends Tool
 {
-    /**
-     * @param Request $request
-     * @param RedmineService $redmine
-     * @return Response
-     */
+    use CastsApiData;
+
     public function handle(Request $request, RedmineService $redmine): Response
     {
         try {
-            $validated = $request->validate([
+            $request->validate([
                 'issue_id' => ['required', 'integer', 'min:1'],
                 'status_id' => ['required', 'integer', 'min:1'],
             ]);
 
-            $issueId = (int) $validated['issue_id'];
-            $statusId = (int) $validated['status_id'];
+            $issueId = $request->integer('issue_id');
+            $statusId = $request->integer('status_id');
 
             $before = $redmine->getIssue($issueId);
             $redmine->updateIssueStatus($issueId, $statusId);
             $after = $redmine->getIssue($issueId);
 
-            $lines = [sprintf('Issue #%d: %s', $issueId, $before['subject'])];
+            $lines = [sprintf('Issue #%d: %s', $issueId, $this->strOf($before['subject'] ?? ''))];
             $lines[] = '';
 
             $changed = $this->diff($before, $after);
@@ -59,8 +57,7 @@ final class UpdateIssueStatusTool extends Tool
     }
 
     /**
-     * @param JsonSchema $schema
-     * @return array|mixed[]
+     * @return array<string, mixed>
      */
     public function schema(JsonSchema $schema): array
     {
@@ -84,10 +81,10 @@ final class UpdateIssueStatusTool extends Tool
         $changed = [];
 
         $fields = [
-            'status' => fn (array $i) => $i['status']['name'] ?? '—',
-            'assigned_to' => fn (array $i) => $i['assigned_to']['name'] ?? 'Unassigned',
-            'priority' => fn (array $i) => $i['priority']['name'] ?? '—',
-            'done_ratio' => fn (array $i): string => ($i['done_ratio'] ?? 0).'%',
+            'status' => fn (array $i): string => $this->strOf(data_get($i, 'status.name'), '—'),
+            'assigned_to' => fn (array $i): string => $this->strOf(data_get($i, 'assigned_to.name'), 'Unassigned'),
+            'priority' => fn (array $i): string => $this->strOf(data_get($i, 'priority.name'), '—'),
+            'done_ratio' => fn (array $i): string => $this->intOf($i['done_ratio'] ?? 0).'%',
         ];
 
         foreach ($fields as $field => $extract) {

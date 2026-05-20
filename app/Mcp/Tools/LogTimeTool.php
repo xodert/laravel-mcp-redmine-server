@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Mcp\Tools;
 
+use App\Mcp\Concerns\CastsApiData;
 use App\Services\RedmineService;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Http\Client\ConnectionException;
@@ -16,15 +17,12 @@ use Throwable;
 #[Description('Log work time for a Redmine issue. Provide issue ID, hours spent, and a description of work done.')]
 final class LogTimeTool extends Tool
 {
-    /**
-     * @param Request $request
-     * @param RedmineService $redmine
-     * @return Response
-     */
+    use CastsApiData;
+
     public function handle(Request $request, RedmineService $redmine): Response
     {
         try {
-            $validated = $request->validate([
+            $request->validate([
                 'issue_id' => ['required', 'integer', 'min:1'],
                 'hours' => ['required', 'numeric', 'min:0.01', 'max:24'],
                 'comment' => ['required', 'string', 'max:255'],
@@ -33,31 +31,33 @@ final class LogTimeTool extends Tool
                 'user_id' => ['nullable', 'integer', 'min:1'],
             ]);
 
-            $activityId = isset($validated['activity_id'])
-                ? (int) $validated['activity_id']
+            $activityId = $request->filled('activity_id')
+                ? $request->integer('activity_id')
                 : $this->resolveDefaultActivityId($redmine);
 
             $entry = $redmine->logTime(
-                $validated['issue_id'],
-                (float) $validated['hours'],
-                $validated['comment'],
-                $validated['date'] ?? null,
+                $request->integer('issue_id'),
+                $request->float('hours'),
+                $request->string('comment')->toString(),
+                $request->filled('date') ? $request->string('date')->toString() : null,
                 $activityId,
-                isset($validated['user_id']) ? (int) $validated['user_id'] : null,
+                $request->filled('user_id') ? $request->integer('user_id') : null,
             );
 
-            $date = $entry['spent_on'] ?? ($validated['date'] ?? now()->toDateString());
-            $hours = $entry['hours'] ?? $validated['hours'];
-            $issueId = $entry['issue']['id'] ?? $validated['issue_id'];
-            $user = $entry['user']['name'] ?? null;
+            $comment = $request->string('comment')->toString();
+            $date = $this->strOf($entry['spent_on'] ?? ($request->filled('date') ? $request->string('date')->toString() : now()->toDateString()));
+            $hours = $this->floatOf($entry['hours'] ?? $request->float('hours'));
+            $issueId = $this->intOf(data_get($entry, 'issue.id', $request->integer('issue_id')));
+            $userName = data_get($entry, 'user.name');
+            $user = is_string($userName) && $userName !== '' ? $userName : null;
 
             return Response::text(
                 "Time logged successfully.\n".
-                sprintf('Issue:   #%s%s', $issueId, PHP_EOL).
+                sprintf('Issue:   #%d%s', $issueId, PHP_EOL).
                 sprintf('Hours:   %s%s', $hours, PHP_EOL).
                 sprintf('Date:    %s%s', $date, PHP_EOL).
                 ($user !== null ? sprintf('User:    %s%s', $user, PHP_EOL) : '').
-                ('Comment: '.$validated['comment'])
+                ('Comment: '.$comment)
             );
         } catch (Throwable $throwable) {
             return Response::error('Failed to log time: '.$throwable->getMessage());
@@ -65,8 +65,7 @@ final class LogTimeTool extends Tool
     }
 
     /**
-     * @param JsonSchema $schema
-     * @return array|mixed[]
+     * @return array<string, mixed>
      */
     public function schema(JsonSchema $schema): array
     {
@@ -91,8 +90,6 @@ final class LogTimeTool extends Tool
     }
 
     /**
-     * @param RedmineService $redmine
-     * @return int|null
      * @throws ConnectionException
      */
     private function resolveDefaultActivityId(RedmineService $redmine): ?int
@@ -102,9 +99,9 @@ final class LogTimeTool extends Tool
         $default = array_filter($activities, fn (array $a): bool => ($a['is_default'] ?? false) === true);
 
         if ($default !== []) {
-            return (int) array_values($default)[0]['id'];
+            return $this->intOf(array_values($default)[0]['id']) ?: null;
         }
 
-        return $activities !== [] ? (int) $activities[0]['id'] : null;
+        return $activities !== [] ? ($this->intOf($activities[0]['id']) ?: null) : null;
     }
 }

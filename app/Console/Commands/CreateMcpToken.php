@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Models\User;
 use Illuminate\Console\Command;
+use Illuminate\Support\Str;
 
 final class CreateMcpToken extends Command
 {
@@ -15,13 +16,13 @@ final class CreateMcpToken extends Command
 
     public function handle(): int
     {
-        $name = $this->argument('name');
+        $name = (string) ($this->argument('name'));
 
         $user = User::query()->firstOrCreate(
             ['email' => 'mcp-service@localhost'],
             [
                 'name' => 'MCP Service Account',
-                'password' => bcrypt(str()->random(32)),
+                'password' => bcrypt(Str::random(32)),
             ]
         );
 

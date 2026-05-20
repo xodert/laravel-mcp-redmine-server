@@ -1,264 +1,258 @@
 # Redmine MCP Server
 
-An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server built with Laravel 11 that exposes Redmine project-management capabilities to AI agents.
-
----
+An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server built with Laravel 13 that exposes Redmine project-management capabilities to AI agents (Claude Code, Cursor, custom harness agents).
 
 ## Requirements
 
-- PHP 8.2+
+- PHP 8.4+
 - Composer
 - A running Redmine instance with REST API enabled
-- SQLite (default) or MySQL
+- SQLite (default) or any Laravel-supported database
 
----
-
-## Installation
+## Quick start
 
 ```bash
-git clone <repo-url> mcp-test
-cd mcp-test
-composer install
-cp .env.example .env
-php artisan key:generate
+git clone <repo-url> redmine-mcp
+cd redmine-mcp
+composer setup
 ```
+
+`composer setup` installs dependencies, copies `.env.example` → `.env`, generates an app key, and runs migrations.
 
 ### Configure `.env`
 
 ```dotenv
 REDMINE_BASE_URL=https://your-redmine.example.com
-REDMINE_API_KEY=your_redmine_api_key
+REDMINE_API_KEY=your_admin_api_key
 
-# Set to sqlite for development
-DB_CONNECTION=sqlite
+# Optional: fallback user ID when /users/current.json returns 403
+REDMINE_DEFAULT_USER_ID=
 ```
 
-### Run migrations
+### Create a Sanctum token for your client
 
 ```bash
-php artisan migrate
+php artisan mcp:create-token harness-agent
 ```
 
-### Generate an MCP client token
+Store the printed token — it is shown only once.
+
+---
+
+## Transports
+
+### stdio — Claude Code / local development
+
+Add to `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "redmine": {
+      "command": "php",
+      "args": ["/path/to/artisan", "mcp:start", "redmine"]
+    }
+  }
+}
+```
+
+On WSL2 from a Windows host:
+
+```json
+{
+  "mcpServers": {
+    "redmine": {
+      "command": "wsl.exe",
+      "args": ["/usr/bin/php8.4", "/path/to/artisan", "mcp:start", "redmine"]
+    }
+  }
+}
+```
+
+### HTTP — harness agent / Cursor
+
+Start the server:
 
 ```bash
-php artisan mcp:create-token "my-ai-agent"
+php artisan serve --port=8080
+# or via Docker: docker compose up -d mcp
 ```
 
-The command prints a **Sanctum token** — store it securely. Use it as a Bearer token when connecting to the MCP endpoint.
+Every request requires two headers:
 
----
+| Header | Value |
+|---|---|
+| `Authorization` | `Bearer <sanctum_token>` |
+| `X-Redmine-API-Key` | `<user_redmine_token>` |
 
-## Running
+The `X-Redmine-API-Key` header overrides the `.env` admin token for that request — all Redmine operations are performed under the user's own identity (correct author, time entry attribution, scoped permissions).
 
-```bash
-php artisan serve
-```
+**Cursor** (`.cursor/mcp.json`):
 
-The MCP endpoint is available at:
-
-```
-POST/GET http://localhost:8000/mcp/redmine
-```
-
----
-
-## Authentication
-
-All requests must include a Sanctum token in the `Authorization` header:
-
-```
-Authorization: Bearer 1|<your-token-here>
-```
-
----
-
-## Available Tools
-
-| Tool | Description |
-|------|-------------|
-| `log-time` | Log work time against a Redmine issue |
-| `get-my-times` | Retrieve time entries for a user over a date range |
-| `get-assigned-issues` | List issues assigned to a user |
-| `create-issue` | Create a new issue in a project |
-| `update-issue-status` | Change the status of an issue |
-| `get-project-issues` | List issues in a project with filters |
-| `check-unlogged-users` | Find users who haven't logged time on a given date |
-
-### Tool Details
-
-#### `log-time`
-
-Log work hours for a Redmine issue.
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `issue_id` | integer | yes | Redmine issue number |
-| `hours` | number | yes | Hours spent (e.g. `1.5`) |
-| `comment` | string | yes | Description of work done |
-| `date` | string | no | Date `YYYY-MM-DD` (default: today) |
-| `activity_id` | integer | no | Redmine activity/work-type ID |
-
----
-
-#### `get-my-times`
-
-Retrieve time log entries for a user.
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `redmine_user_id` | integer | yes | Redmine user ID |
-| `date_from` | string | no | Start date `YYYY-MM-DD` (default: start of current week) |
-| `date_to` | string | no | End date `YYYY-MM-DD` (default: today) |
-
----
-
-#### `get-assigned-issues`
-
-List issues assigned to a user.
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `redmine_user_id` | integer | yes | Redmine user ID |
-| `status` | string | no | `open` / `closed` / `all` (default: `open`) |
-| `project_id` | integer | no | Filter to a specific project |
-
----
-
-#### `create-issue`
-
-Create a new Redmine issue.
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `project_id` | integer | yes | Project to create the issue in |
-| `subject` | string | yes | Issue title |
-| `description` | string | no | Detailed description |
-| `assigned_to_id` | integer | no | Assign to this Redmine user |
-| `priority_id` | integer | no | 1=Low, 2=Normal, 3=High, 4=Urgent, 5=Immediate |
-
----
-
-#### `update-issue-status`
-
-Change the status of an issue.
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `issue_id` | integer | yes | Redmine issue number |
-| `status_id` | integer | yes | 1=New, 2=In Progress, 3=Resolved, 4=Feedback, 5=Closed, 6=Rejected |
-
----
-
-#### `get-project-issues`
-
-List issues in a project.
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `project_id` | integer | yes | Redmine project ID |
-| `status` | string | no | `open` / `closed` / `all` (default: `open`) |
-| `assigned_to_id` | integer | no | Filter by assignee |
-| `limit` | integer | no | Max results, 1–100 (default: 25) |
-
----
-
-#### `check-unlogged-users`
-
-Find users who haven't logged time on a given date.
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `date` | string | no | Date `YYYY-MM-DD` (default: yesterday) |
-| `project_id` | integer | no | Reserved for future filtering |
-
----
-
-## User Mapping
-
-The `user_mappings` table maps external service users to Redmine user IDs:
-
-```sql
-INSERT INTO user_mappings (external_service, external_user_id, redmine_user_id)
-VALUES ('claude', 'user-123', 42);
-```
-
-This supports future integrations (e.g. Google Chat bot) where each external user identity maps to a Redmine account.
-
----
-
-## Logs
-
-Redmine API requests are logged to `storage/logs/redmine-YYYY-MM-DD.log` for debugging.
-
----
-
-## Testing
-
-```bash
-php artisan test tests/Unit/Services/RedmineServiceTest.php
-```
-
-All HTTP requests are mocked via `Http::fake()` — no live Redmine connection required.
-
----
-
-## Example cURL request
-
-```bash
-# 1. Get a token
-php artisan mcp:create-token "curl-test"
-
-# 2. Initialize MCP session (SSE handshake)
-curl -X GET http://localhost:8000/mcp/redmine \
-  -H "Authorization: Bearer <token>" \
-  -H "Accept: text/event-stream"
-
-# 3. Call a tool (MCP JSON-RPC)
-curl -X POST http://localhost:8000/mcp/redmine \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "jsonrpc": "2.0",
-    "id": 1,
-    "method": "tools/call",
-    "params": {
-      "name": "log-time",
-      "arguments": {
-        "issue_id": 42,
-        "hours": 2.5,
-        "comment": "Implemented dark mode toggle",
-        "date": "2026-05-19"
+```json
+{
+  "mcpServers": {
+    "redmine": {
+      "url": "http://localhost:8080/mcp/redmine",
+      "headers": {
+        "Authorization": "Bearer <sanctum_token>",
+        "X-Redmine-API-Key": "<your_redmine_api_key>"
       }
     }
-  }'
+  }
+}
 ```
 
 ---
 
-## Project Structure
+## Docker
+
+```bash
+# Start Redmine + MySQL + MCP server
+docker compose up -d
+
+# Seed Redmine with default data, test users and projects (first time)
+bash docker/scripts/redmine-init.sh
+
+# Create a harness token
+docker compose exec mcp php artisan mcp:create-token harness-agent
+```
+
+Services:
+
+| Service | Port | Description |
+|---|---|---|
+| `mcp` | 8080 | Laravel MCP HTTP server |
+| `redmine` | 3000 | Redmine |
+| `db` | — | MySQL for Redmine (internal) |
+
+---
+
+## Available tools
+
+All tools that accept `redmine_user_id` resolve it automatically when omitted: first via `/users/current.json` (personal API key), then via `REDMINE_DEFAULT_USER_ID`.
+
+| Tool | Read-only | Description |
+|---|---|---|
+| `get-projects-tool` | Yes | List all projects with numeric IDs |
+| `get-users-tool` | Yes | List active users (requires admin key) |
+| `get-issue-tool` | Yes | Full issue details + change history |
+| `get-my-times-tool` | Yes | Time entries for a user in a date range |
+| `get-assigned-issues-tool` | Yes | Open issues assigned to a user |
+| `get-project-issues-tool` | Yes | Issues in a project with filters |
+| `log-time-tool` | No | Log work time on an issue |
+| `create-issue-tool` | No | Create a new issue |
+| `update-issue-status-tool` | No | Change issue status |
+| `check-unlogged-users-tool` | Yes | Users with no time entries on a date |
+
+### Tool parameters
+
+#### `log-time-tool`
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `issue_id` | integer | Yes | Redmine issue number |
+| `hours` | number | Yes | Hours spent (e.g. `1.5`) |
+| `comment` | string | Yes | Description of work done |
+| `date` | string | No | `YYYY-MM-DD` (default: today) |
+| `activity_id` | integer | No | Work type ID (default: Redmine default activity) |
+| `user_id` | integer | No | Log on behalf of another user (admin key required) |
+
+#### `get-my-times-tool`
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `redmine_user_id` | integer | No | Defaults to current API key owner |
+| `date_from` | string | No | `YYYY-MM-DD` (default: start of week) |
+| `date_to` | string | No | `YYYY-MM-DD` (default: today) |
+
+#### `get-assigned-issues-tool`
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `redmine_user_id` | integer | No | Defaults to current API key owner |
+| `status` | string | No | `open` / `closed` / `all` (default: `open`) |
+| `project_id` | integer | No | Filter to a specific project |
+
+#### `create-issue-tool`
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `project_id` | integer | Yes | Target project |
+| `subject` | string | Yes | Issue title |
+| `description` | string | No | Detailed description |
+| `assigned_to_id` | integer | No | Redmine user ID |
+| `priority_id` | integer | No | 1=Low 2=Normal 3=High 4=Urgent 5=Immediate |
+
+#### `update-issue-status-tool`
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `issue_id` | integer | Yes | Redmine issue number |
+| `status_id` | integer | Yes | 1=New 2=In Progress 3=Resolved 4=Feedback 5=Closed 6=Rejected |
+
+#### `get-project-issues-tool`
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `project_id` | integer | Yes | Redmine project ID |
+| `status` | string | No | `open` / `closed` / `all` (default: `open`) |
+| `assigned_to_id` | integer | No | Filter by assignee |
+| `limit` | integer | No | 1–100 (default: 25) |
+
+#### `check-unlogged-users-tool`
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `date` | string | No | `YYYY-MM-DD` (default: yesterday) |
+
+---
+
+## Development
+
+```bash
+# Run tests
+php artisan test --compact
+
+# Static analysis
+vendor/bin/phpstan analyse
+
+# Lint / format
+vendor/bin/pint --dirty
+
+# All checks at once
+composer test
+```
+
+Redmine HTTP calls are mocked via `Http::fake()` — no live Redmine connection required for tests.
+
+Logs for Redmine API calls: `storage/logs/redmine-YYYY-MM-DD.log`
+
+---
+
+## Project structure
 
 ```
 app/
   Console/Commands/
-    CreateMcpToken.php       # php artisan mcp:create-token
+    CreateMcpToken.php          — php artisan mcp:create-token <name>
+  Http/Middleware/
+    InjectRedmineApiKey.php     — maps X-Redmine-API-Key header → config per request
   Mcp/
+    Concerns/
+      CastsApiData.php          — strOf / intOf / floatOf for API response arrays
+      ResolvesRedmineUser.php   — user ID resolution chain (request → API → env fallback)
     Servers/
-      RedmineServer.php      # MCP server definition
+      RedmineServer.php         — registers all tools
     Tools/
-      LogTimeTool.php
-      GetMyTimesTool.php
-      GetAssignedIssuesTool.php
-      CreateIssueTool.php
-      UpdateIssueStatusTool.php
-      GetProjectIssuesTool.php
-      CheckUnloggedUsersTool.php
-  Models/
-    UserMapping.php          # external_user_id <-> redmine_user_id
+      *.php                     — one file per tool
   Services/
-    RedmineService.php       # Redmine REST API client
+    AbstractHttpService.php     — base HTTP client (get/post/put, error handling, JSON helpers)
+    RedmineService.php          — Redmine REST API client
 config/
-  redmine.php                # REDMINE_BASE_URL, REDMINE_API_KEY
+  redmine.php
 routes/
-  ai.php                     # MCP server registration
+  ai.php                        — Mcp::web() and Mcp::local() registration
+docs/
+  mcp-integration.md            — detailed integration guide
 ```

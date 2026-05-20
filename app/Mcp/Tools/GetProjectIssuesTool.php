@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Mcp\Tools;
 
+use App\Mcp\Concerns\CastsApiData;
 use App\Services\RedmineService;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
@@ -17,34 +18,38 @@ use Throwable;
 #[IsReadOnly]
 final class GetProjectIssuesTool extends Tool
 {
+    use CastsApiData;
+
     public function handle(Request $request, RedmineService $redmine): Response
     {
         try {
-            $validated = $request->validate([
+            $request->validate([
                 'project_id' => ['required', 'integer', 'min:1'],
                 'status' => ['nullable', 'in:open,closed,all'],
                 'assigned_to_id' => ['nullable', 'integer', 'min:1'],
                 'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
             ]);
 
-            $issues = $redmine->getProjectIssues((int) $validated['project_id'], [
-                'status' => $validated['status'] ?? 'open',
-                'assigned_to_id' => $validated['assigned_to_id'] ?? null,
-                'limit' => $validated['limit'] ?? 25,
+            $projectId = $request->integer('project_id');
+
+            $issues = $redmine->getProjectIssues($projectId, [
+                'status' => $request->filled('status') ? $request->string('status')->toString() : 'open',
+                'assigned_to_id' => $request->filled('assigned_to_id') ? $request->integer('assigned_to_id') : null,
+                'limit' => $request->filled('limit') ? $request->integer('limit') : 25,
             ]);
 
             if ($issues === []) {
-                return Response::text(sprintf('No issues found for project #%s.', $validated['project_id']));
+                return Response::text(sprintf('No issues found for project #%d.', $projectId));
             }
 
-            $lines = [count($issues)." issue(s) in project #{$validated['project_id']}:\n"];
+            $lines = [count($issues)." issue(s) in project #{$projectId}:\n"];
 
             foreach ($issues as $issue) {
-                $id = $issue['id'];
-                $subject = $issue['subject'] ?? '';
-                $status = $issue['status']['name'] ?? '';
-                $priority = $issue['priority']['name'] ?? '';
-                $assigned = $issue['assigned_to']['name'] ?? 'Unassigned';
+                $id = $this->intOf($issue['id']);
+                $subject = $this->strOf($issue['subject'] ?? '');
+                $status = $this->strOf(data_get($issue, 'status.name'));
+                $priority = $this->strOf(data_get($issue, 'priority.name'));
+                $assigned = $this->strOf(data_get($issue, 'assigned_to.name'), 'Unassigned');
                 $lines[] = "• #{$id} [{$priority}] {$subject}\n  Status: {$status} | Assigned: {$assigned}";
             }
 
@@ -54,6 +59,9 @@ final class GetProjectIssuesTool extends Tool
         }
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function schema(JsonSchema $schema): array
     {
         return [

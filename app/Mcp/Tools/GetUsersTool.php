@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Mcp\Tools;
 
+use App\Mcp\Concerns\CastsApiData;
 use App\Services\RedmineService;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
@@ -17,11 +18,8 @@ use Throwable;
 #[IsReadOnly]
 final class GetUsersTool extends Tool
 {
-    /**
-     * @param Request $request
-     * @param RedmineService $redmine
-     * @return Response
-     */
+    use CastsApiData;
+
     public function handle(Request $request, RedmineService $redmine): Response
     {
         try {
@@ -36,10 +34,10 @@ final class GetUsersTool extends Tool
             foreach ($users as $user) {
                 $lines[] = sprintf(
                     '• #%d  %-12s  %s %s',
-                    $user['id'],
-                    $user['login'],
-                    $user['firstname'],
-                    $user['lastname']
+                    $this->intOf($user['id']),
+                    $this->strOf($user['login'] ?? ''),
+                    $this->strOf($user['firstname'] ?? ''),
+                    $this->strOf($user['lastname'] ?? ''),
                 );
             }
 
@@ -50,8 +48,7 @@ final class GetUsersTool extends Tool
     }
 
     /**
-     * @param JsonSchema $schema
-     * @return array|mixed[]
+     * @return array<string, mixed>
      */
     public function schema(JsonSchema $schema): array
     {

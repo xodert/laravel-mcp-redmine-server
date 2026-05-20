@@ -2,8 +2,7 @@
 
 declare(strict_types=1);
 
-use Illuminate\Contracts\View\Factory;
-use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', fn (): Factory|View => view('welcome'));
+Route::get('/', fn (): JsonResponse => response()->json(['service' => 'Redmine MCP Server', 'status' => 'ok']));

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Mcp\Tools;
 
+use App\Mcp\Concerns\CastsApiData;
 use App\Services\RedmineService;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
@@ -17,11 +18,8 @@ use Throwable;
 #[IsReadOnly]
 final class GetProjectsTool extends Tool
 {
-    /**
-     * @param Request $request
-     * @param RedmineService $redmine
-     * @return Response
-     */
+    use CastsApiData;
+
     public function handle(Request $request, RedmineService $redmine): Response
     {
         try {
@@ -36,9 +34,9 @@ final class GetProjectsTool extends Tool
             foreach ($projects as $project) {
                 $lines[] = sprintf(
                     '• #%d  %-20s  %s',
-                    $project['id'],
-                    $project['identifier'],
-                    $project['name']
+                    $this->intOf($project['id']),
+                    $this->strOf($project['identifier'] ?? ''),
+                    $this->strOf($project['name'] ?? ''),
                 );
             }
 
@@ -49,8 +47,7 @@ final class GetProjectsTool extends Tool
     }
 
     /**
-     * @param JsonSchema $schema
-     * @return array|mixed[]
+     * @return array<string, mixed>
      */
     public function schema(JsonSchema $schema): array
     {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Mcp\Tools;
 
+use App\Mcp\Concerns\CastsApiData;
 use App\Mcp\Concerns\ResolvesRedmineUser;
 use App\Services\RedmineService;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -14,36 +15,32 @@ use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 use Throwable;
 
-/**
- *
- */
 #[Description('Get issues assigned to a Redmine user, optionally filtered by status.')]
 #[IsReadOnly]
 final class GetAssignedIssuesTool extends Tool
 {
+    use CastsApiData;
     use ResolvesRedmineUser;
 
-    /**
-     * @param Request $request
-     * @param RedmineService $redmine
-     * @return Response
-     */
     public function handle(Request $request, RedmineService $redmine): Response
     {
         try {
-            $validated = $request->validate([
+            $request->validate([
                 'redmine_user_id' => ['nullable', 'integer', 'min:1'],
                 'status' => ['nullable', 'in:open,closed,all'],
                 'project_id' => ['nullable', 'integer', 'min:1'],
             ]);
 
             $redmineUserId = $this->resolveRedmineUserId($request, $redmine);
-            $status = $validated['status'] ?? 'open';
+            $status = $request->filled('status') ? $request->string('status')->toString() : 'open';
             $issues = $redmine->getAssignedIssues($redmineUserId, $status);
 
-            if (isset($validated['project_id'])) {
-                $projectId = (int) $validated['project_id'];
-                $issues = array_filter($issues, fn (array $i): bool => ($i['project']['id'] ?? null) === $projectId);
+            if ($request->filled('project_id')) {
+                $projectId = $request->integer('project_id');
+                $issues = array_filter(
+                    $issues,
+                    fn (array $i): bool => $this->intOf(data_get($i, 'project.id')) === $projectId
+                );
             }
 
             if ($issues === []) {
@@ -53,12 +50,12 @@ final class GetAssignedIssuesTool extends Tool
             $lines = [count($issues)." {$status} issue(s) assigned:\n"];
 
             foreach ($issues as $issue) {
-                $id = $issue['id'];
-                $subject = $issue['subject'] ?? '';
-                $project = $issue['project']['name'] ?? 'N/A';
-                $status = $issue['status']['name'] ?? '';
-                $priority = $issue['priority']['name'] ?? '';
-                $lines[] = "• #{$id} [{$priority}] {$subject}\n  Project: {$project} | Status: {$status}";
+                $id = $this->intOf($issue['id']);
+                $subject = $this->strOf($issue['subject'] ?? '');
+                $project = $this->strOf(data_get($issue, 'project.name'), 'N/A');
+                $issueStatus = $this->strOf(data_get($issue, 'status.name'));
+                $priority = $this->strOf(data_get($issue, 'priority.name'));
+                $lines[] = "• #{$id} [{$priority}] {$subject}\n  Project: {$project} | Status: {$issueStatus}";
             }
 
             return Response::text(implode("\n", $lines));

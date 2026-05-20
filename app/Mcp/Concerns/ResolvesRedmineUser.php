@@ -22,14 +22,14 @@ trait ResolvesRedmineUser
     private function resolveRedmineUserId(Request $request, RedmineService $redmine): int
     {
         if ($request->has('redmine_user_id')) {
-            return (int) $request->get('redmine_user_id');
+            return $request->integer('redmine_user_id');
         }
 
         try {
             $user = $redmine->getCurrentUser();
 
             if (! empty($user['id'])) {
-                return (int) $user['id'];
+                return is_scalar($user['id']) ? (int) $user['id'] : 0;
             }
         } catch (Throwable) {
             // Fall through to config default
@@ -38,7 +38,7 @@ trait ResolvesRedmineUser
         $defaultUserId = config('redmine.default_user_id');
 
         if ($defaultUserId !== null) {
-            return (int) $defaultUserId;
+            return is_scalar($defaultUserId) ? (int) $defaultUserId : 0;
         }
 
         throw new RuntimeException(
