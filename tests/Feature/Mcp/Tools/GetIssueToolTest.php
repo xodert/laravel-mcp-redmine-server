@@ -98,6 +98,44 @@ it('renders journal change history with resolved names', function (): void {
         ->and($text)->toContain('In Progress');
 });
 
+it('renders note-only journals without loading reference data', function (): void {
+    Http::fake([
+        'redmine.test/issues/25.json*' => Http::response([
+            'issue' => [
+                'id' => 25,
+                'subject' => 'Notes only',
+                'project' => ['name' => 'App'],
+                'status' => ['name' => 'New'],
+                'priority' => ['name' => 'Normal'],
+                'author' => ['name' => 'Alice'],
+                'created_on' => '2026-05-01T00:00:00Z',
+                'updated_on' => '2026-05-01T00:00:00Z',
+                'done_ratio' => 0,
+                'journals' => [
+                    [
+                        'user' => ['name' => 'Bob'],
+                        'created_on' => '2026-05-02T00:00:00Z',
+                        'notes' => 'Just a comment.',
+                        'details' => [],
+                    ],
+                ],
+            ],
+        ], 200),
+    ]);
+
+    $response = (new GetIssueTool)->handle(
+        new Request(['issue_id' => 25]),
+        new RedmineService,
+    );
+
+    $text = $response->content()->toArray()['text'];
+
+    expect($response->isError())->toBeFalse()
+        ->and($text)->toContain('Just a comment.');
+
+    Http::assertNotSent(fn ($req): bool => str_contains((string) $req->url(), 'issue_statuses.json'));
+});
+
 it('returns error when issue not found', function (): void {
     Http::fake(['redmine.test/issues/9999.json*' => Http::response(null, 404)]);
 

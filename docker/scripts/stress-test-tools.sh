@@ -31,7 +31,7 @@ info "Redmine is responding"
 info "Running seed script inside container '${CONTAINER}'..."
 docker exec "${CONTAINER}" bundle exec rails runner "${SEED_SCRIPT}" 2>&1 \
   | grep -v "^\(W,\|I,\|E,\)" \
-  | grep -E "^\[seed\]|━|Redmine is ready|API key:|Stress date"
+  | grep -E "^\[seed\]|━|Redmine is ready|API key:|Stress date" || true
 
 ENV_FILE="${ROOT}/.env"
 if [ -f "${ENV_FILE}" ]; then

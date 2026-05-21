@@ -7,6 +7,7 @@ use App\Mcp\Tools\GetProjectsTool;
 use App\Mcp\Tools\GetUsersTool;
 use App\Models\User;
 use App\Services\RedmineService;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
 
@@ -53,6 +54,16 @@ it('registers admin-only tools when current user lookup fails but users list is 
 
     expect((new GetUsersTool)->shouldRegister(new RedmineService))->toBeTrue()
         ->and((new CheckUnloggedUsersTool)->shouldRegister(new RedmineService))->toBeTrue();
+});
+
+it('does not register admin-only tools when redmine is unreachable', function (): void {
+    Http::fake([
+        'redmine.test/users/current.json' => fn () => throw new ConnectionException('Connection refused'),
+        'redmine.test/users.json*' => fn () => throw new ConnectionException('Connection refused'),
+    ]);
+
+    expect((new GetUsersTool)->shouldRegister(new RedmineService))->toBeFalse()
+        ->and((new CheckUnloggedUsersTool)->shouldRegister(new RedmineService))->toBeFalse();
 });
 
 it('always registers tools without admin restriction', function (): void {

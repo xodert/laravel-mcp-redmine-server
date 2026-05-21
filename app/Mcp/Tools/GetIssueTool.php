@@ -56,15 +56,15 @@ final class GetIssueTool extends Tool
             $journals = $issue['journals'] ?? [];
 
             if ($journals !== []) {
-                $hasDetails = collect($journals)->contains(
-                    fn (array $j): bool => ! empty($j['details']) || mb_trim($this->strOf($j['notes'] ?? '')) !== ''
+                $hasJournalDetails = collect($journals)->contains(
+                    fn (array $j): bool => ! empty($j['details'])
                 );
 
                 $statuses = [];
                 $priorities = [];
                 $users = [];
 
-                if ($hasDetails) {
+                if ($hasJournalDetails) {
                     /** @var array<int, string> $statuses */
                     $statuses = array_column($redmine->getIssueStatuses(), 'name', 'id');
 

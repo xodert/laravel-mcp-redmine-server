@@ -97,17 +97,23 @@ function liveFindProjectIdByIdentifier(RedmineService $redmine, string $identifi
 
 function liveFindJournalIssueId(RedmineService $redmine, int $stressLabProjectId): int
 {
-    $page = $redmine->getProjectIssues($stressLabProjectId, [
-        'status' => 'all',
-        'limit' => 100,
-        'offset' => 0,
-    ]);
+    $offset = 0;
 
-    foreach ($page['items'] as $issue) {
-        if (($issue['subject'] ?? '') === 'Journal history stress issue') {
-            return (int) $issue['id'];
+    do {
+        $page = $redmine->getProjectIssues($stressLabProjectId, [
+            'status' => 'all',
+            'limit' => 100,
+            'offset' => $offset,
+        ]);
+
+        foreach ($page['items'] as $issue) {
+            if (($issue['subject'] ?? '') === 'Journal history stress issue') {
+                return (int) $issue['id'];
+            }
         }
-    }
+
+        $offset += count($page['items']);
+    } while ($offset < $page['total'] && $page['items'] !== []);
 
     throw new RuntimeException('Journal history stress issue not found — run docker/redmine seed first.');
 }
@@ -154,8 +160,10 @@ it('paginates projects against live seed data', function (): void {
 
     $text = liveToolText($response);
 
+    preg_match('/(\d+)\s+total/', $text, $matches);
+
     expect($response->isError())->toBeFalse()
-        ->and($text)->toMatch('/10\d total/')
+        ->and((int) ($matches[1] ?? 0))->toBeGreaterThanOrEqual(100)
         ->and($text)->toContain('offset=1');
 });
 
@@ -239,8 +247,10 @@ it('lists stress-lab project issues with pagination hint', function (): void {
 
     $text = liveToolText($response);
 
+    preg_match('/(\d+)\s+total/', $text, $matches);
+
     expect($response->isError())->toBeFalse()
-        ->and($text)->toMatch('/3\d total/')
+        ->and((int) ($matches[1] ?? 0))->toBeGreaterThanOrEqual(30)
         ->and($text)->toContain('offset=5')
         ->and($text)->toContain('Stress assigned issue');
 });

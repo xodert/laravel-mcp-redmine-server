@@ -51,5 +51,5 @@ it('passes auth when token has the mcp ability', function (): void {
         'id' => 1,
     ]);
 
-    expect($response->status())->not->toBe(401)->not->toBe(403);
+    $response->assertOk();
 });

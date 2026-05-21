@@ -16,7 +16,11 @@ trait ResolvesRedmineUser
     private function resolveRedmineUserFilter(Request $request): int|string
     {
         if ($request->filled('redmine_user_id')) {
-            return $request->integer('redmine_user_id');
+            $resolvedUserId = filter_var($request->get('redmine_user_id'), FILTER_VALIDATE_INT);
+
+            if (is_int($resolvedUserId) && $resolvedUserId > 0) {
+                return $resolvedUserId;
+            }
         }
 
         return RedmineService::CURRENT_USER;
