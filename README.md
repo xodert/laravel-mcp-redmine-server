@@ -56,19 +56,6 @@ Add to `.mcp.json`:
 }
 ```
 
-On WSL2 from a Windows host:
-
-```json
-{
-  "mcpServers": {
-    "redmine": {
-      "command": "wsl.exe",
-      "args": ["/usr/bin/php8.4", "/path/to/artisan", "mcp:start", "redmine"]
-    }
-  }
-}
-```
-
 ### HTTP — harness agent / Cursor
 
 Start the server:

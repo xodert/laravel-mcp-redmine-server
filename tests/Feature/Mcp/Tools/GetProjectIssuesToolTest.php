@@ -76,6 +76,17 @@ it('passes offset and updated_after to the api', function (): void {
     });
 });
 
+it('maps status=all to status_id=* for Redmine API', function (): void {
+    Http::fake(['redmine.test/issues.json*' => Http::response(['issues' => []], 200)]);
+
+    (new GetProjectIssuesTool)->handle(
+        new Request(['project_id' => 1, 'status' => 'all']),
+        new RedmineService,
+    );
+
+    Http::assertSent(fn ($req): bool => str_contains((string) $req->url(), 'status_id=%2A'));
+});
+
 it('returns error on api failure', function (): void {
     Http::fake(['redmine.test/issues.json*' => Http::response(null, 500)]);
 

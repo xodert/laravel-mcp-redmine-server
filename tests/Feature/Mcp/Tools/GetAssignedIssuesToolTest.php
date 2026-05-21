@@ -103,6 +103,17 @@ it('filters by project_id server-side', function (): void {
     Http::assertSent(fn ($req): bool => str_contains((string) $req->url(), 'project_id=3'));
 });
 
+it('maps status=all to status_id=* for Redmine API', function (): void {
+    Http::fake(['redmine.test/issues.json*' => Http::response(['issues' => []], 200)]);
+
+    (new GetAssignedIssuesTool)->handle(
+        new Request(['redmine_user_id' => 5, 'status' => 'all']),
+        new RedmineService,
+    );
+
+    Http::assertSent(fn ($req): bool => str_contains((string) $req->url(), 'status_id=%2A'));
+});
+
 it('returns error on api failure', function (): void {
     Http::fake(['redmine.test/issues.json*' => Http::response(null, 500)]);
 

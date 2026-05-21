@@ -81,7 +81,7 @@ final readonly class RedmineService extends AbstractHttpService
     ): array {
         $params = [
             'assigned_to_id' => $redmineUserId,
-            'status_id' => $status,
+            'status_id' => $status === 'all' ? '*' : $status,
             'limit' => $limit,
             'offset' => $offset,
         ];
@@ -149,9 +149,11 @@ final readonly class RedmineService extends AbstractHttpService
      */
     public function getProjectIssues(int $projectId, array $filters = []): array
     {
+        $status = $filters['status'] ?? 'open';
+
         $params = [
             'project_id' => $projectId,
-            'status_id' => $filters['status'] ?? 'open',
+            'status_id' => $status === 'all' ? '*' : $status,
             'limit' => $filters['limit'] ?? 25,
             'offset' => $filters['offset'] ?? 0,
         ];
