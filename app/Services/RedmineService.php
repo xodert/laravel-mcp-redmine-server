@@ -106,7 +106,7 @@ final readonly class RedmineService extends AbstractHttpService
      * @throws ConnectionException
      * @throws RuntimeException
      */
-    public function createIssue(int $projectId, string $subject, string $description = '', ?int $assignedToId = null, ?int $priorityId = null): array
+    public function createIssue(int $projectId, string $subject, string $description = '', ?int $assignedToId = null, ?int $priorityId = null, ?int $trackerId = null): array
     {
         $payload = [
             'issue' => array_filter([
@@ -115,6 +115,7 @@ final readonly class RedmineService extends AbstractHttpService
                 'description' => $description,
                 'assigned_to_id' => $assignedToId,
                 'priority_id' => $priorityId,
+                'tracker_id' => $trackerId,
             ], fn (string|int|null $v): bool => $v !== null && $v !== ''),
         ];
 
@@ -206,19 +207,22 @@ final readonly class RedmineService extends AbstractHttpService
      * @throws ConnectionException
      * @throws RuntimeException
      */
+    /**
+     * @return list<array<string, mixed>>
+     *
+     * @throws ConnectionException
+     * @throws RuntimeException
+     */
     public function getIssueStatuses(): array
     {
         $response = $this->get('/issue_statuses.json');
         $this->assertSuccessful(__FUNCTION__, $response);
 
-        $data = $this->jsonList($response, 'issue_statuses');
-
-        /** @var array<int, string> */
-        return array_column($data, 'name', 'id');
+        return $this->jsonList($response, 'issue_statuses');
     }
 
     /**
-     * @return array<int, string>
+     * @return list<array<string, mixed>>
      *
      * @throws ConnectionException
      * @throws RuntimeException
@@ -228,10 +232,21 @@ final readonly class RedmineService extends AbstractHttpService
         $response = $this->get('/enumerations/issue_priorities.json');
         $this->assertSuccessful(__FUNCTION__, $response);
 
-        $data = $this->jsonList($response, 'issue_priorities');
+        return $this->jsonList($response, 'issue_priorities');
+    }
 
-        /** @var array<int, string> */
-        return array_column($data, 'name', 'id');
+    /**
+     * @return list<array<string, mixed>>
+     *
+     * @throws ConnectionException
+     * @throws RuntimeException
+     */
+    public function getTrackers(): array
+    {
+        $response = $this->get('/trackers.json');
+        $this->assertSuccessful(__FUNCTION__, $response);
+
+        return $this->jsonList($response, 'trackers');
     }
 
     /**

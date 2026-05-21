@@ -7,10 +7,14 @@ namespace App\Mcp\Servers;
 use App\Mcp\Tools\CheckUnloggedUsersTool;
 use App\Mcp\Tools\CreateIssueTool;
 use App\Mcp\Tools\GetAssignedIssuesTool;
+use App\Mcp\Tools\GetIssuePrioritiesTool;
+use App\Mcp\Tools\GetIssueStatusesTool;
 use App\Mcp\Tools\GetIssueTool;
 use App\Mcp\Tools\GetMyTimesTool;
 use App\Mcp\Tools\GetProjectIssuesTool;
 use App\Mcp\Tools\GetProjectsTool;
+use App\Mcp\Tools\GetTimeEntryActivitiesTool;
+use App\Mcp\Tools\GetTrackersTool;
 use App\Mcp\Tools\GetUsersTool;
 use App\Mcp\Tools\LogTimeTool;
 use App\Mcp\Tools\UpdateIssueStatusTool;
@@ -31,6 +35,10 @@ final class RedmineServer extends Server
 {
     protected array $tools = [
         GetProjectsTool::class,
+        GetTrackersTool::class,
+        GetIssueStatusesTool::class,
+        GetIssuePrioritiesTool::class,
+        GetTimeEntryActivitiesTool::class,
         GetUsersTool::class,
         GetIssueTool::class,
         LogTimeTool::class,

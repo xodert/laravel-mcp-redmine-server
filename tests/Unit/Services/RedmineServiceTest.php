@@ -226,6 +226,22 @@ it('filters assigned issues by project_id and updated_after', function (): void 
     });
 });
 
+it('retrieves trackers', function (): void {
+    Http::fake([
+        'redmine.test/trackers.json' => Http::response([
+            'trackers' => [
+                ['id' => 1, 'name' => 'Bug'],
+                ['id' => 2, 'name' => 'Feature'],
+            ],
+        ], 200),
+    ]);
+
+    $trackers = $this->service->getTrackers();
+
+    expect($trackers)->toHaveCount(2)
+        ->and($trackers[0]['name'])->toBe('Bug');
+});
+
 it('returns empty array when json list key is not an array', function (): void {
     Http::fake([
         'redmine.test/projects.json*' => Http::response(['projects' => null], 200),

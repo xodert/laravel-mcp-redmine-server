@@ -63,8 +63,11 @@ final class GetIssueTool extends Tool
                 $users = [];
 
                 if ($hasDetails) {
-                    $statuses = $redmine->getIssueStatuses();
-                    $priorities = $redmine->getIssuePriorities();
+                    /** @var array<int, string> $statuses */
+                    $statuses = array_column($redmine->getIssueStatuses(), 'name', 'id');
+
+                    /** @var array<int, string> $priorities */
+                    $priorities = array_column($redmine->getIssuePriorities(), 'name', 'id');
 
                     /** @var array<int, string> $users */
                     $users = array_column($redmine->getUsers(), 'name', 'id');

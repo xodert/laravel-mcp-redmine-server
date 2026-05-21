@@ -17,7 +17,7 @@ use Throwable;
 #[IsIdempotent]
 #[Description(
     'Change the status of a Redmine issue. '.
-    'Standard statuses: 1=New, 2=In Progress, 3=Resolved, 4=Feedback, 5=Closed, 6=Rejected. '.
+    'Use get-issue-statuses-tool to retrieve valid status IDs for this Redmine instance. '.
     'Confirm the desired status with the user before applying.'
 )]
 final class UpdateIssueStatusTool extends Tool
@@ -68,7 +68,7 @@ final class UpdateIssueStatusTool extends Tool
                 ->description('Redmine issue number')
                 ->required(),
             'status_id' => $schema->integer()
-                ->description('New status ID: 1=New, 2=In Progress, 3=Resolved, 4=Feedback, 5=Closed, 6=Rejected')
+                ->description('New status ID. Use get-issue-statuses-tool to see available statuses for this Redmine instance.')
                 ->required(),
         ];
     }
