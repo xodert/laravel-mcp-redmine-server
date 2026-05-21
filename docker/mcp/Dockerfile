@@ -1,24 +1,19 @@
 FROM php:8.4-cli-alpine
 
 RUN apk add --no-cache \
-    curl \
-    sqlite \
     libzip-dev \
-    oniguruma-dev \
+    sqlite-dev \
     && docker-php-ext-install \
         pdo_sqlite \
-        mbstring \
-        zip \
-        pcntl
+        zip
 
 WORKDIR /var/www/mcp-test
 
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
 COPY . .
 
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer \
-    && composer install --no-dev --no-interaction --optimize-autoloader \
-    && php artisan config:cache \
-    && php artisan route:cache
+RUN composer install --no-dev --no-interaction --optimize-autoloader --no-progress
 
 EXPOSE 8080
 

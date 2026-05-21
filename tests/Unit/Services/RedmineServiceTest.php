@@ -205,3 +205,23 @@ it('throws a RuntimeException on a 503 connection error', function (): void {
     expect(fn () => $this->service->getProjects())
         ->toThrow(RuntimeException::class);
 });
+
+it('returns empty array when json list key is not an array', function (): void {
+    Http::fake([
+        'redmine.test/projects.json*' => Http::response(['projects' => null], 200),
+    ]);
+
+    $projects = $this->service->getProjects();
+
+    expect($projects)->toBeArray()->toBeEmpty();
+});
+
+it('returns empty array when json object key is not an array', function (): void {
+    Http::fake([
+        'redmine.test/issues/1.json*' => Http::response(['issue' => 'invalid'], 200),
+    ]);
+
+    $issue = $this->service->getIssue(1);
+
+    expect($issue)->toBeArray()->toBeEmpty();
+});

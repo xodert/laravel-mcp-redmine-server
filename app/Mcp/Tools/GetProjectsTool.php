@@ -6,7 +6,6 @@ namespace App\Mcp\Tools;
 
 use App\Mcp\Concerns\CastsApiData;
 use App\Services\RedmineService;
-use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
@@ -44,13 +43,5 @@ final class GetProjectsTool extends Tool
         } catch (Throwable $throwable) {
             return Response::error('Failed to retrieve projects: '.$throwable->getMessage());
         }
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    public function schema(JsonSchema $schema): array
-    {
-        return [];
     }
 }

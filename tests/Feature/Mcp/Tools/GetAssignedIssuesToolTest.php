@@ -75,3 +75,15 @@ it('returns message when no issues found', function (): void {
 
     expect($response->content()->toArray()['text'])->toContain('No open issues');
 });
+
+it('returns error on api failure', function (): void {
+    Http::fake(['redmine.test/issues.json*' => Http::response(null, 500)]);
+
+    $response = (new GetAssignedIssuesTool)->handle(
+        new Request(['redmine_user_id' => 5]),
+        new RedmineService,
+    );
+
+    expect($response->isError())->toBeTrue()
+        ->and($response->content()->toArray()['text'])->toContain('Failed to retrieve assigned issues');
+});

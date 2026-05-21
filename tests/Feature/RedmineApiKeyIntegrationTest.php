@@ -7,6 +7,7 @@ use App\Mcp\Tools\GetProjectsTool;
 use App\Services\RedmineService;
 use Illuminate\Support\Facades\Http;
 use Laravel\Mcp\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 beforeEach(function (): void {
     config(['redmine.base_url' => 'https://redmine.test', 'redmine.api_key' => 'default-admin-token']);
@@ -20,7 +21,7 @@ it('uses X-Redmine-API-Key header token instead of env token for Redmine API cal
     // Simulate middleware injecting per-user token
     $httpRequest = Illuminate\Http\Request::create('/mcp/redmine', 'POST');
     $httpRequest->headers->set('X-Redmine-API-Key', 'user-personal-token');
-    (new InjectRedmineApiKey)->handle($httpRequest, fn () => new Symfony\Component\HttpFoundation\Response);
+    (new InjectRedmineApiKey)->handle($httpRequest, fn (): Response => new Response);
 
     // RedmineService now picks up the per-user token from config
     (new GetProjectsTool)->handle(new Request([]), new RedmineService);
@@ -41,7 +42,7 @@ it('ignores empty X-Redmine-API-Key header and uses env token', function (): voi
 
     $httpRequest = Illuminate\Http\Request::create('/mcp/redmine', 'POST');
     $httpRequest->headers->set('X-Redmine-API-Key', '');
-    (new InjectRedmineApiKey)->handle($httpRequest, fn () => new Symfony\Component\HttpFoundation\Response);
+    (new InjectRedmineApiKey)->handle($httpRequest, fn (): Response => new Response);
 
     (new GetProjectsTool)->handle(new Request([]), new RedmineService);
 

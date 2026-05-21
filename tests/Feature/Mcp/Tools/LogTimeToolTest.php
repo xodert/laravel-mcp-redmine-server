@@ -67,3 +67,24 @@ it('returns error response when redmine is unavailable', function (): void {
     expect($response->isError())->toBeTrue()
         ->and($response->content()->toArray()['text'])->toContain('Failed to log time');
 });
+
+it('uses first activity when no default activity is configured', function (): void {
+    Http::fake([
+        'redmine.test/enumerations/time_entry_activities.json' => Http::response([
+            'time_entry_activities' => [
+                ['id' => 5, 'name' => 'Support', 'is_default' => false],
+            ],
+        ], 200),
+        'redmine.test/time_entries.json' => Http::response([
+            'time_entry' => ['id' => 1, 'hours' => 1.0, 'spent_on' => '2026-05-19', 'issue' => ['id' => 42]],
+        ], 201),
+    ]);
+
+    $response = (new LogTimeTool)->handle(
+        new Request(['issue_id' => 42, 'hours' => 1.0, 'comment' => 'Test']),
+        new RedmineService,
+    );
+
+    expect($response->isError())->toBeFalse()
+        ->and($response->content()->toArray()['text'])->toContain('Time logged successfully');
+});

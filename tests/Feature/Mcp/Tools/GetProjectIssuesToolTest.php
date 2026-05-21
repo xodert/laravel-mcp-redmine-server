@@ -42,3 +42,15 @@ it('returns message when no issues', function (): void {
 
     expect($response->content()->toArray()['text'])->toContain('No issues found');
 });
+
+it('returns error on api failure', function (): void {
+    Http::fake(['redmine.test/issues.json*' => Http::response(null, 500)]);
+
+    $response = (new GetProjectIssuesTool)->handle(
+        new Request(['project_id' => 1]),
+        new RedmineService,
+    );
+
+    expect($response->isError())->toBeTrue()
+        ->and($response->content()->toArray()['text'])->toContain('Failed to retrieve project issues');
+});
