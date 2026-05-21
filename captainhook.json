@@ -3,12 +3,17 @@
         "enabled": true,
         "actions": [
             {
-                "action": "vendor/bin/pint --dirty",
+                "action": "composer lint",
                 "options": [],
                 "conditions": []
             },
             {
                 "action": "vendor/bin/phpstan analyse --no-progress --memory-limit=1G",
+                "options": [],
+                "conditions": []
+            },
+            {
+                "action": "composer test:type-coverage",
                 "options": [],
                 "conditions": []
             },
@@ -24,7 +29,13 @@
         "actions": []
     },
     "pre-push": {
-        "enabled": false,
-        "actions": []
+        "enabled": true,
+        "actions": [
+            {
+                "action": "composer test:unit",
+                "options": [],
+                "conditions": []
+            }
+        ]
     }
 }

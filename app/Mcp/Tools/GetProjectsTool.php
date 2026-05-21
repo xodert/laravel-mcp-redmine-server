@@ -56,8 +56,8 @@ final class GetProjectsTool extends Tool
             }
 
             return Response::text(implode("\n", $lines));
-        } catch (RuntimeException $throwable) {
-            return Response::error('Failed to retrieve projects: '.$throwable->getMessage());
+        } catch (RuntimeException $runtimeException) {
+            return Response::error('Failed to retrieve projects: '.$runtimeException->getMessage());
         }
     }
 

@@ -72,8 +72,8 @@ final class GetAssignedIssuesTool extends Tool
             }
 
             return Response::text(implode("\n", $lines));
-        } catch (RuntimeException $throwable) {
-            return Response::error('Failed to retrieve assigned issues: '.$throwable->getMessage());
+        } catch (RuntimeException $runtimeException) {
+            return Response::error('Failed to retrieve assigned issues: '.$runtimeException->getMessage());
         }
     }
 

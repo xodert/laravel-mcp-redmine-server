@@ -38,8 +38,8 @@ final class GetIssuePrioritiesTool extends Tool
             }
 
             return Response::text(implode("\n", $lines));
-        } catch (RuntimeException $throwable) {
-            return Response::error('Failed to retrieve issue priorities: '.$throwable->getMessage());
+        } catch (RuntimeException $runtimeException) {
+            return Response::error('Failed to retrieve issue priorities: '.$runtimeException->getMessage());
         }
     }
 }

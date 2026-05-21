@@ -37,8 +37,8 @@ final class GetTrackersTool extends Tool
             }
 
             return Response::text(implode("\n", $lines));
-        } catch (RuntimeException $throwable) {
-            return Response::error('Failed to retrieve trackers: '.$throwable->getMessage());
+        } catch (RuntimeException $runtimeException) {
+            return Response::error('Failed to retrieve trackers: '.$runtimeException->getMessage());
         }
     }
 }

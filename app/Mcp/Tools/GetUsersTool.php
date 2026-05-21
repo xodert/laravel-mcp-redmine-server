@@ -59,8 +59,8 @@ final class GetUsersTool extends Tool
             }
 
             return Response::text(implode("\n", $lines));
-        } catch (RuntimeException $throwable) {
-            return Response::error('Failed to retrieve users: '.$throwable->getMessage());
+        } catch (RuntimeException $runtimeException) {
+            return Response::error('Failed to retrieve users: '.$runtimeException->getMessage());
         }
     }
 

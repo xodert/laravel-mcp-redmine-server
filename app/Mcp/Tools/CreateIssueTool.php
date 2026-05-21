@@ -49,8 +49,8 @@ final class CreateIssueTool extends Tool
                 sprintf('Subject: %s%s', $request->string('subject')->toString(), PHP_EOL).
                 ('URL: '.$url)
             );
-        } catch (RuntimeException $throwable) {
-            return Response::error('Failed to create issue: '.$throwable->getMessage());
+        } catch (RuntimeException $runtimeException) {
+            return Response::error('Failed to create issue: '.$runtimeException->getMessage());
         }
     }
 

@@ -73,7 +73,7 @@ function liveFindUserIdByLogin(RedmineService $redmine, string $login): int
         $offset += count($page['items']);
     } while ($offset < $page['total'] && $page['items'] !== []);
 
-    throw new RuntimeException("Redmine user '{$login}' not found — run docker/redmine seed first.");
+    throw new RuntimeException(sprintf("Redmine user '%s' not found — run docker/redmine seed first.", $login));
 }
 
 function liveFindProjectIdByIdentifier(RedmineService $redmine, string $identifier): int
@@ -92,7 +92,7 @@ function liveFindProjectIdByIdentifier(RedmineService $redmine, string $identifi
         $offset += count($page['items']);
     } while ($offset < $page['total'] && $page['items'] !== []);
 
-    throw new RuntimeException("Redmine project '{$identifier}' not found — run docker/redmine seed first.");
+    throw new RuntimeException(sprintf("Redmine project '%s' not found — run docker/redmine seed first.", $identifier));
 }
 
 function liveFindJournalIssueId(RedmineService $redmine, int $stressLabProjectId): int
@@ -129,7 +129,7 @@ beforeEach(function (): void {
     try {
         Http::timeout(5)->withHeaders(['X-Redmine-API-Key' => $apiKey])->get(mb_rtrim($baseUrl, '/').'/users.json', ['limit' => 1])->throw();
     } catch (Throwable) {
-        $this->markTestSkipped("Redmine at {$baseUrl} is not reachable.");
+        $this->markTestSkipped(sprintf('Redmine at %s is not reachable.', $baseUrl));
     }
 });
 

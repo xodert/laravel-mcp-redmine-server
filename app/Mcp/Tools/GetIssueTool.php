@@ -122,8 +122,8 @@ final class GetIssueTool extends Tool
             }
 
             return Response::text(implode("\n", $lines));
-        } catch (RuntimeException $throwable) {
-            return Response::error('Failed to retrieve issue: '.$throwable->getMessage());
+        } catch (RuntimeException $runtimeException) {
+            return Response::error('Failed to retrieve issue: '.$runtimeException->getMessage());
         }
     }
 

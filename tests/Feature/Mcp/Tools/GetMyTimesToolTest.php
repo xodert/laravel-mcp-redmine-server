@@ -80,3 +80,15 @@ it('returns message when no entries found', function (): void {
     expect($response->isError())->toBeFalse()
         ->and($response->content()->toArray()['text'])->toContain('No time entries found');
 });
+
+it('returns error on api failure', function (): void {
+    Http::fake(['redmine.test/time_entries.json*' => Http::response(null, 500)]);
+
+    $response = (new GetMyTimesTool)->handle(
+        new Request(['redmine_user_id' => 5]),
+        new RedmineService,
+    );
+
+    expect($response->isError())->toBeTrue()
+        ->and($response->content()->toArray()['text'])->toContain('Failed to retrieve time logs');
+});

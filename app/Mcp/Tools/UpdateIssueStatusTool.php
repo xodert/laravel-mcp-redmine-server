@@ -53,8 +53,8 @@ final class UpdateIssueStatusTool extends Tool
             }
 
             return Response::text(implode("\n", $lines));
-        } catch (RuntimeException $throwable) {
-            return Response::error('Failed to update issue status: '.$throwable->getMessage());
+        } catch (RuntimeException $runtimeException) {
+            return Response::error('Failed to update issue status: '.$runtimeException->getMessage());
         }
     }
 

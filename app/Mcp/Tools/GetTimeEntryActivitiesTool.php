@@ -38,8 +38,8 @@ final class GetTimeEntryActivitiesTool extends Tool
             }
 
             return Response::text(implode("\n", $lines));
-        } catch (RuntimeException $throwable) {
-            return Response::error('Failed to retrieve time entry activities: '.$throwable->getMessage());
+        } catch (RuntimeException $runtimeException) {
+            return Response::error('Failed to retrieve time entry activities: '.$runtimeException->getMessage());
         }
     }
 }

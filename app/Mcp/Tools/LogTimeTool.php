@@ -58,8 +58,8 @@ final class LogTimeTool extends Tool
                 ($user !== null ? sprintf('User:    %s%s', $user, PHP_EOL) : '').
                 ('Comment: '.$comment)
             );
-        } catch (RuntimeException $throwable) {
-            return Response::error('Failed to log time: '.$throwable->getMessage());
+        } catch (RuntimeException $runtimeException) {
+            return Response::error('Failed to log time: '.$runtimeException->getMessage());
         }
     }
 

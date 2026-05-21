@@ -9,7 +9,7 @@ use RuntimeException;
 
 final readonly class RedmineService extends AbstractHttpService
 {
-    public const CURRENT_USER = 'me';
+    public const string CURRENT_USER = 'me';
 
     private string $baseUrl;
 

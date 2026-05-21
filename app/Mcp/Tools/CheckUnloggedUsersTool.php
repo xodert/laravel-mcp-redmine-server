@@ -59,8 +59,8 @@ final class CheckUnloggedUsersTool extends Tool
                 count($unlogged)." user(s) without time entries on {$date}:\n\n".
                 implode("\n", $names)
             );
-        } catch (RuntimeException $throwable) {
-            return Response::error('Failed to check unlogged users: '.$throwable->getMessage());
+        } catch (RuntimeException $runtimeException) {
+            return Response::error('Failed to check unlogged users: '.$runtimeException->getMessage());
         }
     }
 

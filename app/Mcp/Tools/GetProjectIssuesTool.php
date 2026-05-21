@@ -68,8 +68,8 @@ final class GetProjectIssuesTool extends Tool
             }
 
             return Response::text(implode("\n", $lines));
-        } catch (RuntimeException $throwable) {
-            return Response::error('Failed to retrieve project issues: '.$throwable->getMessage());
+        } catch (RuntimeException $runtimeException) {
+            return Response::error('Failed to retrieve project issues: '.$runtimeException->getMessage());
         }
     }
 
