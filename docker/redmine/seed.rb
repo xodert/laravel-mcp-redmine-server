@@ -3,7 +3,9 @@
 
 MODULES = %w[issue_tracking time_tracking wiki boards calendar gantt].freeze
 
-def find_or_create_user(login:, firstname:, lastname:, mail:, password: 'password')
+DEFAULT_PASSWORD = 'password1'
+
+def find_or_create_user(login:, firstname:, lastname:, mail:, password: DEFAULT_PASSWORD)
   user = User.find_by(login: login)
   return user if user
 
@@ -48,7 +50,8 @@ def add_member(project, user, role_name: 'Developer')
 end
 
 def create_issue(project:, subject:, description:, author:, assigned_to:, tracker: nil, status: nil, priority: nil)
-  return if Issue.exists?(project: project, subject: subject)
+  issue = Issue.find_by(project: project, subject: subject)
+  return issue if issue
 
   issue = Issue.create!(
     project:     project,
@@ -62,6 +65,27 @@ def create_issue(project:, subject:, description:, author:, assigned_to:, tracke
   )
   puts "[seed]   Issue ##{issue.id}: #{subject}"
   issue
+end
+
+def ensure_journal_stress_history(issue, admin:, alice:, bob:)
+  return unless issue
+
+  has_assignment_history = issue.journals.any? do |journal|
+    journal.details.any? { |detail| detail.prop_key == 'assigned_to_id' }
+  end
+
+  return if has_assignment_history
+
+  issue.init_journal(admin, 'Reassigned to Alice')
+  issue.assigned_to = alice
+  issue.save!
+
+  issue.reload
+  issue.init_journal(admin, 'Reassigned to Bob')
+  issue.assigned_to = bob
+  issue.save!
+
+  puts "[seed]   Journal history applied to issue ##{issue.id}"
 end
 
 def log_time(project:, issue:, user:, hours:, comment:, date: Date.today)
@@ -100,11 +124,12 @@ priority_high      = IssuePriority.find_by(name: 'High')      || IssuePriority.d
 
 # ── Admin ─────────────────────────────────────────────────────────────────────
 admin = User.find_by(login: 'admin')
-unless admin.check_password?('admin')
-  admin.password = admin.password_confirmation = 'admin'
+admin_password = 'admin1234'
+unless admin.check_password?(admin_password)
+  admin.password = admin.password_confirmation = admin_password
   admin.save!
 end
-puts "[seed] Admin: admin / admin  |  API key: #{admin.api_key}"
+puts "[seed] Admin: admin / #{admin_password}  |  API key: #{admin.api_key}"
 
 # ── Test users ────────────────────────────────────────────────────────────────
 puts "[seed] Users:"
@@ -176,16 +201,112 @@ log_time(project: mobile, issue: m1, user: bob,  hours: 4.0, comment: 'FCM setup
 log_time(project: mobile, issue: m1, user: bob,  hours: 3.0, comment: 'APNs integration', date: Date.today - 2) if m1
 log_time(project: mobile, issue: m2, user: dave, hours: 2.0, comment: 'Local DB schema', date: Date.today - 1) if m2
 
+# ── Stress / pagination fixtures ──────────────────────────────────────────────
+puts "[seed] Stress fixtures (pagination & check-unlogged-users):"
+
+STRESS_DATE = Date.today - 1
+
+stress_lab = find_or_create_project(
+  identifier:  'stress-lab',
+  name:        'Stress Lab',
+  description: 'Pagination and volume stress-test fixtures for MCP tools'
+)
+add_member(stress_lab, admin, role_name: 'Manager')
+add_member(stress_lab, alice, role_name: 'Developer')
+add_member(stress_lab, bob,   role_name: 'Developer')
+
+120.times do |i|
+  n = i + 1
+  find_or_create_user(
+    login:     format('bulk%03d', n),
+    firstname: 'Bulk',
+    lastname:  format('User%03d', n),
+    mail:      format('bulk%03d@stress.example.com', n)
+  )
+end
+
+105.times do |i|
+  n = i + 1
+  find_or_create_project(
+    identifier:  format('stress-proj-%03d', n),
+    name:        format('Stress Project %03d', n),
+    description: 'Auto-generated project for MCP pagination stress tests'
+  )
+end
+
+120.times do |i|
+  n = i + 1
+  user = User.find_by(login: format('bulk%03d', n))
+  add_member(stress_lab, user, role_name: 'Developer') if user
+end
+
+journal_issue = create_issue(
+  project:     stress_lab,
+  subject:     'Journal history stress issue',
+  description: 'Issue with assigned_to changes for get-issue-tool journal lookup',
+  author:      admin,
+  assigned_to: admin,
+  status:      status_in_progress
+)
+
+ensure_journal_stress_history(journal_issue, admin: admin, alice: alice, bob: bob)
+
+30.times do |i|
+  n = i + 1
+  create_issue(
+    project:     stress_lab,
+    subject:     format('Stress assigned issue #%02d', n),
+    description: 'Bulk issue for get-assigned-issues-tool pagination',
+    author:      admin,
+    assigned_to: alice,
+    status:      status_new
+  )
+end
+
+110.times do |i|
+  n = i + 1
+  user = User.find_by(login: format('bulk%03d', n))
+  next unless user
+
+  log_time(
+    project:  stress_lab,
+    issue:    journal_issue || Issue.where(project: stress_lab).first,
+    user:     user,
+    hours:    1.0,
+    comment:  format('stress-unlogged-%03d', n),
+    date:     STRESS_DATE
+  )
+end
+
+105.times do |i|
+  n = i + 1
+  log_time(
+    project:  stress_lab,
+    issue:    journal_issue || Issue.where(project: stress_lab).first,
+    user:     alice,
+    hours:    0.5,
+    comment:  format('stress-alice-times-%03d', n),
+    date:     STRESS_DATE - (n % 7)
+  )
+end
+
+puts "[seed]   #{User.active.count} active users (need >100 for pagination)"
+puts "[seed]   #{Project.count} projects (need >100 for pagination)"
+puts "[seed]   #{TimeEntry.where(spent_on: STRESS_DATE).count} time entries on #{STRESS_DATE} (need >100 for check-unlogged-users)"
+puts "[seed]   Journal issue: ##{journal_issue.id}" if journal_issue
+puts "[seed]   Unlogged on #{STRESS_DATE}: bulk111–bulk120 + carol + dave (12 users)"
+
 # ── Summary ───────────────────────────────────────────────────────────────────
 puts ""
 puts "━" * 54
 puts "  Redmine is ready at http://localhost:3000"
 puts ""
-puts "  admin  / admin     (admin)    API key: #{admin.api_key}"
-puts "  alice  / password  (developer)"
-puts "  bob    / password  (developer)"
-puts "  carol  / password  (developer)"
-puts "  dave   / password  (reporter)"
+puts "  admin  / admin1234  (admin)    API key: #{admin.api_key}"
+puts "  alice  / password1  (developer)"
+puts "  bob    / password1  (developer)"
+puts "  carol  / password1  (developer)"
+puts "  dave   / password1  (reporter)"
 puts ""
-puts "  Projects: mcp-test · backend-api · mobile-app"
+puts "  Projects: mcp-test · backend-api · mobile-app · stress-lab · stress-proj-*"
+puts "  Stress date (check-unlogged-users): #{STRESS_DATE}"
 puts "━" * 54

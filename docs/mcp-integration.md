@@ -173,6 +173,10 @@ The `mcp` service uses `REDMINE_BASE_URL=http://redmine:3000` to reach Redmine o
 | Tool | Read-only | Description |
 |---|---|---|
 | `get-projects-tool` | Yes | List all projects with IDs |
+| `get-trackers-tool` | Yes | List issue trackers (Bug, Feature, etc.) |
+| `get-issue-statuses-tool` | Yes | List issue statuses with closed flag |
+| `get-issue-priorities-tool` | Yes | List issue priorities with default flag |
+| `get-time-entry-activities-tool` | Yes | List time entry activity types |
 | `get-users-tool` | Yes | List all active users with IDs (requires admin key) |
 | `get-issue-tool` | Yes | Full issue details + change history |
 | `get-my-times-tool` | Yes | Time entries for a user in a date range |
@@ -183,7 +187,23 @@ The `mcp` service uses `REDMINE_BASE_URL=http://redmine:3000` to reach Redmine o
 | `update-issue-status-tool` | No | Change issue status |
 | `check-unlogged-users-tool` | Yes | Find users with no time entries on a date |
 
+Call the reference tools before using IDs in mutating tools — Redmine instance IDs are not portable across installations.
+
 When `redmine_user_id` is omitted from tools that need it, the server resolves the current user automatically via `/users/current.json` using the token from `X-Redmine-API-Key`. Falls back to `REDMINE_DEFAULT_USER_ID` if the endpoint returns 403.
+
+### Pagination
+
+Redmine list endpoints return at most 100 records per request. Tools that expose lists accept `offset` and `limit` and include a hint when more records exist:
+
+| Tool | Default limit | Pagination params |
+|---|---|---|
+| `get-users-tool` | 100 | `offset`, `limit` |
+| `get-projects-tool` | 100 | `offset`, `limit` |
+| `get-my-times-tool` | 100 | `offset`, `limit` |
+| `get-assigned-issues-tool` | 25 | `offset`, `limit` |
+| `get-project-issues-tool` | 25 | `offset`, `limit` |
+
+`check-unlogged-users-tool` does **not** accept pagination params — it fetches all users and all time entries for the date internally to produce a complete diff.
 
 ---
 
@@ -194,6 +214,7 @@ app/
   Mcp/
     Concerns/
       CastsApiData.php        — strOf/intOf/floatOf helpers for API response arrays
+      FetchesRedminePages.php — bounded pagination helpers for full user/time-entry fetch
       ResolvesRedmineUser.php — user ID resolution chain
     Servers/
       RedmineServer.php       — registers all tools

@@ -11,7 +11,7 @@ use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
-use Throwable;
+use RuntimeException;
 
 #[Description('Create a new issue (task) in a Redmine project.')]
 final class CreateIssueTool extends Tool
@@ -26,7 +26,8 @@ final class CreateIssueTool extends Tool
                 'subject' => ['required', 'string', 'max:255'],
                 'description' => ['nullable', 'string'],
                 'assigned_to_id' => ['nullable', 'integer', 'min:1'],
-                'priority_id' => ['nullable', 'integer', 'in:1,2,3,4,5'],
+                'priority_id' => ['nullable', 'integer', 'min:1'],
+                'tracker_id' => ['nullable', 'integer', 'min:1'],
             ]);
 
             $issue = $redmine->createIssue(
@@ -35,6 +36,7 @@ final class CreateIssueTool extends Tool
                 $request->filled('description') ? $request->string('description')->toString() : '',
                 $request->filled('assigned_to_id') ? $request->integer('assigned_to_id') : null,
                 $request->filled('priority_id') ? $request->integer('priority_id') : null,
+                $request->filled('tracker_id') ? $request->integer('tracker_id') : null,
             );
 
             $id = $this->intOf($issue['id']);
@@ -47,8 +49,8 @@ final class CreateIssueTool extends Tool
                 sprintf('Subject: %s%s', $request->string('subject')->toString(), PHP_EOL).
                 ('URL: '.$url)
             );
-        } catch (Throwable $throwable) {
-            return Response::error('Failed to create issue: '.$throwable->getMessage());
+        } catch (RuntimeException $runtimeException) {
+            return Response::error('Failed to create issue: '.$runtimeException->getMessage());
         }
     }
 
@@ -67,11 +69,11 @@ final class CreateIssueTool extends Tool
             'description' => $schema->string()
                 ->description('Detailed description of the issue'),
             'assigned_to_id' => $schema->integer()
-                ->description('Redmine user ID to assign the issue to'),
+                ->description('Redmine user ID to assign the issue to. Use get-users-tool to find user IDs.'),
+            'tracker_id' => $schema->integer()
+                ->description('Issue tracker ID (e.g. Bug, Feature, Support). Use get-trackers-tool to see available trackers.'),
             'priority_id' => $schema->integer()
-                ->enum([1, 2, 3, 4, 5])
-                ->description('Priority: 1=Low, 2=Normal, 3=High, 4=Urgent, 5=Immediate')
-                ->default(2),
+                ->description('Priority ID. Use get-issue-priorities-tool to see available priorities for this Redmine instance.'),
         ];
     }
 }

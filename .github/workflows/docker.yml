@@ -45,6 +45,29 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Build image locally for smoke test
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/mcp/Dockerfile
+          load: true
+          tags: mcp:smoke
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test image
+        run: |
+          docker run -d --name mcp_smoke \
+            -e APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= \
+            -e APP_ENV=local \
+            -e DB_CONNECTION=sqlite \
+            -e DB_DATABASE=:memory: \
+            -p 8080:8080 \
+            mcp:smoke
+          timeout 20 bash -c 'until curl -sf http://localhost:8080/up; do sleep 1; done' \
+            || (docker logs mcp_smoke && exit 1)
+          docker rm -f mcp_smoke
+
       - name: Build and push
         uses: docker/build-push-action@v7
         with:
@@ -54,4 +77,3 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max

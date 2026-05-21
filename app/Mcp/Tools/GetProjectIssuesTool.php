@@ -12,7 +12,7 @@ use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
-use Throwable;
+use RuntimeException;
 
 #[Description('List issues in a Redmine project with optional filters by status or assignee.')]
 #[IsReadOnly]
@@ -28,21 +28,35 @@ final class GetProjectIssuesTool extends Tool
                 'status' => ['nullable', 'in:open,closed,all'],
                 'assigned_to_id' => ['nullable', 'integer', 'min:1'],
                 'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
+                'offset' => ['nullable', 'integer', 'min:0'],
+                'updated_after' => ['nullable', 'date_format:Y-m-d'],
             ]);
 
             $projectId = $request->integer('project_id');
+            $offset = $request->filled('offset') ? $request->integer('offset') : 0;
+            $limit = $request->filled('limit') ? $request->integer('limit') : 25;
 
-            $issues = $redmine->getProjectIssues($projectId, [
+            $result = $redmine->getProjectIssues($projectId, [
                 'status' => $request->filled('status') ? $request->string('status')->toString() : 'open',
                 'assigned_to_id' => $request->filled('assigned_to_id') ? $request->integer('assigned_to_id') : null,
-                'limit' => $request->filled('limit') ? $request->integer('limit') : 25,
+                'limit' => $limit,
+                'offset' => $offset,
+                'updated_after' => $request->filled('updated_after') ? $request->string('updated_after')->toString() : null,
             ]);
+
+            $issues = $result['items'];
+            $total = $result['total'];
 
             if ($issues === []) {
                 return Response::text(sprintf('No issues found for project #%d.', $projectId));
             }
 
-            $lines = [count($issues)." issue(s) in project #{$projectId}:\n"];
+            $nextOffset = $offset + count($issues);
+            $header = $nextOffset < $total
+                ? sprintf('%d total issue(s) in project #%d, showing %d–%d. Use offset=%d for the next page.', $total, $projectId, $offset + 1, $nextOffset, $nextOffset)
+                : sprintf('%d issue(s) in project #%d:', count($issues), $projectId);
+
+            $lines = [$header."\n"];
 
             foreach ($issues as $issue) {
                 $id = $this->intOf($issue['id']);
@@ -54,8 +68,8 @@ final class GetProjectIssuesTool extends Tool
             }
 
             return Response::text(implode("\n", $lines));
-        } catch (Throwable $throwable) {
-            return Response::error('Failed to retrieve project issues: '.$throwable->getMessage());
+        } catch (RuntimeException $runtimeException) {
+            return Response::error('Failed to retrieve project issues: '.$runtimeException->getMessage());
         }
     }
 
@@ -77,6 +91,11 @@ final class GetProjectIssuesTool extends Tool
             'limit' => $schema->integer()
                 ->description('Maximum number of issues to return (1–100). Defaults to 25.')
                 ->default(25),
+            'offset' => $schema->integer()
+                ->description('Number of issues to skip for pagination. Defaults to 0.')
+                ->default(0),
+            'updated_after' => $schema->string()
+                ->description('Return only issues updated on or after this date (YYYY-MM-DD).'),
         ];
     }
 }

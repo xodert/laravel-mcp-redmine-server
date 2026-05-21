@@ -13,7 +13,7 @@ use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
-use Throwable;
+use RuntimeException;
 
 #[Description('Get issues assigned to a Redmine user, optionally filtered by status.')]
 #[IsReadOnly]
@@ -29,25 +29,38 @@ final class GetAssignedIssuesTool extends Tool
                 'redmine_user_id' => ['nullable', 'integer', 'min:1'],
                 'status' => ['nullable', 'in:open,closed,all'],
                 'project_id' => ['nullable', 'integer', 'min:1'],
+                'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
+                'offset' => ['nullable', 'integer', 'min:0'],
+                'updated_after' => ['nullable', 'date_format:Y-m-d'],
             ]);
 
-            $redmineUserId = $this->resolveRedmineUserId($request, $redmine);
+            $redmineUserId = $this->resolveRedmineUserFilter($request);
             $status = $request->filled('status') ? $request->string('status')->toString() : 'open';
-            $issues = $redmine->getAssignedIssues($redmineUserId, $status);
+            $offset = $request->filled('offset') ? $request->integer('offset') : 0;
+            $limit = $request->filled('limit') ? $request->integer('limit') : 25;
 
-            if ($request->filled('project_id')) {
-                $projectId = $request->integer('project_id');
-                $issues = array_filter(
-                    $issues,
-                    fn (array $i): bool => $this->intOf(data_get($i, 'project.id')) === $projectId
-                );
-            }
+            $result = $redmine->getAssignedIssues(
+                $redmineUserId,
+                $status,
+                $limit,
+                $offset,
+                $request->filled('updated_after') ? $request->string('updated_after')->toString() : null,
+                $request->filled('project_id') ? $request->integer('project_id') : null,
+            );
+
+            $issues = $result['items'];
+            $total = $result['total'];
 
             if ($issues === []) {
                 return Response::text(sprintf('No %s issues assigned to this user.', $status));
             }
 
-            $lines = [count($issues)." {$status} issue(s) assigned:\n"];
+            $nextOffset = $offset + count($issues);
+            $header = $nextOffset < $total
+                ? sprintf('%d total %s issue(s), showing %d–%d. Use offset=%d for the next page.', $total, $status, $offset + 1, $nextOffset, $nextOffset)
+                : sprintf('%d %s issue(s) assigned:', count($issues), $status);
+
+            $lines = [$header."\n"];
 
             foreach ($issues as $issue) {
                 $id = $this->intOf($issue['id']);
@@ -59,8 +72,8 @@ final class GetAssignedIssuesTool extends Tool
             }
 
             return Response::text(implode("\n", $lines));
-        } catch (Throwable $throwable) {
-            return Response::error('Failed to retrieve assigned issues: '.$throwable->getMessage());
+        } catch (RuntimeException $runtimeException) {
+            return Response::error('Failed to retrieve assigned issues: '.$runtimeException->getMessage());
         }
     }
 
@@ -71,13 +84,21 @@ final class GetAssignedIssuesTool extends Tool
     {
         return [
             'redmine_user_id' => $schema->integer()
-                ->description('Redmine user ID. If omitted, resolved from the authenticated token.'),
+                ->description('Redmine user ID. If omitted, returns issues assigned to the API key owner.'),
             'status' => $schema->string()
                 ->enum(['open', 'closed', 'all'])
                 ->description('Issue status filter. Defaults to "open".')
                 ->default('open'),
             'project_id' => $schema->integer()
                 ->description('Filter results to a specific project ID'),
+            'updated_after' => $schema->string()
+                ->description('Return only issues updated on or after this date (YYYY-MM-DD). Useful for "what changed recently".'),
+            'limit' => $schema->integer()
+                ->description('Number of issues to return (1–100). Defaults to 25.')
+                ->default(25),
+            'offset' => $schema->integer()
+                ->description('Number of issues to skip for pagination. Defaults to 0.')
+                ->default(0),
         ];
     }
 }

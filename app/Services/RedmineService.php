@@ -9,6 +9,8 @@ use RuntimeException;
 
 final readonly class RedmineService extends AbstractHttpService
 {
+    public const string CURRENT_USER = 'me';
+
     private string $baseUrl;
 
     private string $apiKey;
@@ -47,40 +49,64 @@ final readonly class RedmineService extends AbstractHttpService
     }
 
     /**
-     * @return list<array<string, mixed>>
+     * @return array{items: list<array<string, mixed>>, total: int}
      *
      * @throws ConnectionException
      * @throws RuntimeException
      */
-    public function getUserTimeLogs(int $redmineUserId, string $dateFrom, string $dateTo): array
+    public function getUserTimeLogs(int|string $redmineUserId, string $dateFrom, string $dateTo, int $offset = 0, int $limit = 100): array
     {
         $response = $this->get('/time_entries.json', [
             'user_id' => $redmineUserId,
             'from' => $dateFrom,
             'to' => $dateTo,
-            'limit' => 100,
+            'limit' => $limit,
+            'offset' => $offset,
         ]);
         $this->assertSuccessful(__FUNCTION__, $response);
 
-        return $this->jsonList($response, 'time_entries');
+        $items = $this->jsonList($response, 'time_entries');
+        $rawTotal = $response->json('total_count');
+
+        return ['items' => $items, 'total' => is_int($rawTotal) ? $rawTotal : count($items)];
     }
 
     /**
-     * @return list<array<string, mixed>>
+     * @return array{items: list<array<string, mixed>>, total: int}
      *
      * @throws ConnectionException
      * @throws RuntimeException
      */
-    public function getAssignedIssues(int $redmineUserId, string $status = 'open'): array
-    {
-        $response = $this->get('/issues.json', [
+    public function getAssignedIssues(
+        int|string $redmineUserId,
+        string $status = 'open',
+        int $limit = 25,
+        int $offset = 0,
+        ?string $updatedAfter = null,
+        ?int $projectId = null,
+    ): array {
+        $params = [
             'assigned_to_id' => $redmineUserId,
-            'status_id' => $status,
-            'limit' => 100,
-        ]);
+            'status_id' => $status === 'all' ? '*' : $status,
+            'limit' => $limit,
+            'offset' => $offset,
+        ];
+
+        if ($projectId !== null) {
+            $params['project_id'] = $projectId;
+        }
+
+        if ($updatedAfter !== null) {
+            $params['updated_on'] = '>='.$updatedAfter;
+        }
+
+        $response = $this->get('/issues.json', $params);
         $this->assertSuccessful(__FUNCTION__, $response);
 
-        return $this->jsonList($response, 'issues');
+        $items = $this->jsonList($response, 'issues');
+        $rawTotal = $response->json('total_count');
+
+        return ['items' => $items, 'total' => is_int($rawTotal) ? $rawTotal : count($items)];
     }
 
     /**
@@ -89,7 +115,7 @@ final readonly class RedmineService extends AbstractHttpService
      * @throws ConnectionException
      * @throws RuntimeException
      */
-    public function createIssue(int $projectId, string $subject, string $description = '', ?int $assignedToId = null, ?int $priorityId = null): array
+    public function createIssue(int $projectId, string $subject, string $description = '', ?int $assignedToId = null, ?int $priorityId = null, ?int $trackerId = null): array
     {
         $payload = [
             'issue' => array_filter([
@@ -98,6 +124,7 @@ final readonly class RedmineService extends AbstractHttpService
                 'description' => $description,
                 'assigned_to_id' => $assignedToId,
                 'priority_id' => $priorityId,
+                'tracker_id' => $trackerId,
             ], fn (string|int|null $v): bool => $v !== null && $v !== ''),
         ];
 
@@ -125,57 +152,80 @@ final readonly class RedmineService extends AbstractHttpService
 
     /**
      * @param  array<string, mixed>  $filters
-     * @return list<array<string, mixed>>
+     * @return array{items: list<array<string, mixed>>, total: int}
      *
      * @throws ConnectionException
      * @throws RuntimeException
      */
     public function getProjectIssues(int $projectId, array $filters = []): array
     {
-        $params = array_merge([
+        $status = $filters['status'] ?? 'open';
+
+        $params = [
             'project_id' => $projectId,
+            'status_id' => $status === 'all' ? '*' : $status,
             'limit' => $filters['limit'] ?? 25,
-        ], array_filter([
-            'status_id' => $filters['status'] ?? 'open',
-            'assigned_to_id' => $filters['assigned_to_id'] ?? null,
-        ], fn (mixed $v): bool => $v !== null));
+            'offset' => $filters['offset'] ?? 0,
+        ];
+
+        if (isset($filters['assigned_to_id'])) {
+            $params['assigned_to_id'] = $filters['assigned_to_id'];
+        }
+
+        if (isset($filters['updated_after']) && is_string($filters['updated_after'])) {
+            $params['updated_on'] = '>='.$filters['updated_after'];
+        }
 
         $response = $this->get('/issues.json', $params);
         $this->assertSuccessful(__FUNCTION__, $response);
 
-        return $this->jsonList($response, 'issues');
+        $items = $this->jsonList($response, 'issues');
+        $rawTotal = $response->json('total_count');
+
+        return ['items' => $items, 'total' => is_int($rawTotal) ? $rawTotal : count($items)];
     }
 
     /**
-     * @return list<array<string, mixed>>
+     * @return array{items: list<array<string, mixed>>, total: int}
      *
      * @throws ConnectionException
      * @throws RuntimeException
      */
-    public function getUsers(): array
+    public function getUsers(int $offset = 0, int $limit = 100): array
     {
-        $response = $this->get('/users.json', ['limit' => 100, 'status' => 1]);
+        $response = $this->get('/users.json', ['limit' => $limit, 'offset' => $offset, 'status' => 1]);
         $this->assertSuccessful(__FUNCTION__, $response);
 
-        return $this->jsonList($response, 'users');
+        $items = $this->jsonList($response, 'users');
+        $rawTotal = $response->json('total_count');
+
+        return ['items' => $items, 'total' => is_int($rawTotal) ? $rawTotal : count($items)];
     }
 
     /**
-     * @return list<array<string, mixed>>
+     * @return array{items: list<array<string, mixed>>, total: int}
      *
      * @throws ConnectionException
      * @throws RuntimeException
      */
-    public function getTimeLogsByDate(string $date): array
+    public function getTimeLogsByDate(string $date, int $offset = 0, int $limit = 100): array
     {
-        $response = $this->get('/time_entries.json', ['from' => $date, 'to' => $date, 'limit' => 100]);
+        $response = $this->get('/time_entries.json', [
+            'from' => $date,
+            'to' => $date,
+            'limit' => $limit,
+            'offset' => $offset,
+        ]);
         $this->assertSuccessful(__FUNCTION__, $response);
 
-        return $this->jsonList($response, 'time_entries');
+        $items = $this->jsonList($response, 'time_entries');
+        $rawTotal = $response->json('total_count');
+
+        return ['items' => $items, 'total' => is_int($rawTotal) ? $rawTotal : count($items)];
     }
 
     /**
-     * @return array<int, string>
+     * @return list<array<string, mixed>>
      *
      * @throws ConnectionException
      * @throws RuntimeException
@@ -185,14 +235,11 @@ final readonly class RedmineService extends AbstractHttpService
         $response = $this->get('/issue_statuses.json');
         $this->assertSuccessful(__FUNCTION__, $response);
 
-        $data = $this->jsonList($response, 'issue_statuses');
-
-        /** @var array<int, string> */
-        return array_column($data, 'name', 'id');
+        return $this->jsonList($response, 'issue_statuses');
     }
 
     /**
-     * @return array<int, string>
+     * @return list<array<string, mixed>>
      *
      * @throws ConnectionException
      * @throws RuntimeException
@@ -202,10 +249,21 @@ final readonly class RedmineService extends AbstractHttpService
         $response = $this->get('/enumerations/issue_priorities.json');
         $this->assertSuccessful(__FUNCTION__, $response);
 
-        $data = $this->jsonList($response, 'issue_priorities');
+        return $this->jsonList($response, 'issue_priorities');
+    }
 
-        /** @var array<int, string> */
-        return array_column($data, 'name', 'id');
+    /**
+     * @return list<array<string, mixed>>
+     *
+     * @throws ConnectionException
+     * @throws RuntimeException
+     */
+    public function getTrackers(): array
+    {
+        $response = $this->get('/trackers.json');
+        $this->assertSuccessful(__FUNCTION__, $response);
+
+        return $this->jsonList($response, 'trackers');
     }
 
     /**
@@ -223,17 +281,20 @@ final readonly class RedmineService extends AbstractHttpService
     }
 
     /**
-     * @return list<array<string, mixed>>
+     * @return array{items: list<array<string, mixed>>, total: int}
      *
      * @throws ConnectionException
      * @throws RuntimeException
      */
-    public function getProjects(): array
+    public function getProjects(int $offset = 0, int $limit = 100): array
     {
-        $response = $this->get('/projects.json', ['limit' => 100]);
+        $response = $this->get('/projects.json', ['limit' => $limit, 'offset' => $offset]);
         $this->assertSuccessful(__FUNCTION__, $response);
 
-        return $this->jsonList($response, 'projects');
+        $items = $this->jsonList($response, 'projects');
+        $rawTotal = $response->json('total_count');
+
+        return ['items' => $items, 'total' => is_int($rawTotal) ? $rawTotal : count($items)];
     }
 
     /**

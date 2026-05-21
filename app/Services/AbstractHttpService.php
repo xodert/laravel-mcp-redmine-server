@@ -115,6 +115,12 @@ abstract readonly class AbstractHttpService
      */
     private function logRequest(string $method, string $path, array $params = []): void
     {
-        Log::channel($this->apiLogChannel())->debug(sprintf('%s %s', $method, $path), $params);
+        // Only include query params for GET requests; POST/PUT bodies may contain
+        // sensitive data (descriptions, comments, user information) and must not
+        // be logged even at debug level.
+        Log::channel($this->apiLogChannel())->debug(
+            sprintf('%s %s', $method, $path),
+            $method === 'GET' ? $params : [],
+        );
     }
 }

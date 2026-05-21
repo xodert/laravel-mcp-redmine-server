@@ -1,0 +1,41 @@
+{
+    "pre-commit": {
+        "enabled": true,
+        "actions": [
+            {
+                "action": "composer lint",
+                "options": [],
+                "conditions": []
+            },
+            {
+                "action": "vendor/bin/phpstan analyse --no-progress --memory-limit=1G",
+                "options": [],
+                "conditions": []
+            },
+            {
+                "action": "composer test:type-coverage",
+                "options": [],
+                "conditions": []
+            },
+            {
+                "action": "vendor/bin/pest --compact --parallel",
+                "options": [],
+                "conditions": []
+            }
+        ]
+    },
+    "commit-msg": {
+        "enabled": false,
+        "actions": []
+    },
+    "pre-push": {
+        "enabled": true,
+        "actions": [
+            {
+                "action": "composer test:unit",
+                "options": [],
+                "conditions": []
+            }
+        ]
+    }
+}
