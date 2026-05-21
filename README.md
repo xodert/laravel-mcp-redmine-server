@@ -122,6 +122,10 @@ All tools that accept `redmine_user_id` resolve it automatically when omitted: f
 | Tool | Read-only | Description |
 |---|---|---|
 | `get-projects-tool` | Yes | List all projects with numeric IDs |
+| `get-trackers-tool` | Yes | List issue trackers (Bug, Feature, etc.) |
+| `get-issue-statuses-tool` | Yes | List issue statuses with closed flag |
+| `get-issue-priorities-tool` | Yes | List issue priorities with default flag |
+| `get-time-entry-activities-tool` | Yes | List time entry activity types |
 | `get-users-tool` | Yes | List active users (requires admin key) |
 | `get-issue-tool` | Yes | Full issue details + change history |
 | `get-my-times-tool` | Yes | Time entries for a user in a date range |
@@ -132,7 +136,25 @@ All tools that accept `redmine_user_id` resolve it automatically when omitted: f
 | `update-issue-status-tool` | No | Change issue status |
 | `check-unlogged-users-tool` | Yes | Users with no time entries on a date |
 
+Call the reference tools (`get-trackers-tool`, `get-issue-priorities-tool`, `get-issue-statuses-tool`, `get-time-entry-activities-tool`) before using IDs in mutating tools — Redmine instance IDs are not portable across installations.
+
+List tools that return more than one page include a pagination hint in the response (e.g. `Use offset=100 for the next page`). Pass `offset` and `limit` to fetch subsequent pages.
+
 ### Tool parameters
+
+#### `get-users-tool`
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `offset` | integer | No | Number of users to skip (default: 0) |
+| `limit` | integer | No | 1–100 (default: 100) |
+
+#### `get-projects-tool`
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `offset` | integer | No | Number of projects to skip (default: 0) |
+| `limit` | integer | No | 1–100 (default: 100) |
 
 #### `log-time-tool`
 
@@ -142,7 +164,7 @@ All tools that accept `redmine_user_id` resolve it automatically when omitted: f
 | `hours` | number | Yes | Hours spent (e.g. `1.5`) |
 | `comment` | string | Yes | Description of work done |
 | `date` | string | No | `YYYY-MM-DD` (default: today) |
-| `activity_id` | integer | No | Work type ID (default: Redmine default activity) |
+| `activity_id` | integer | No | Activity ID — use `get-time-entry-activities-tool` (default: Redmine default activity) |
 | `user_id` | integer | No | Log on behalf of another user (admin key required) |
 
 #### `get-my-times-tool`
@@ -152,6 +174,8 @@ All tools that accept `redmine_user_id` resolve it automatically when omitted: f
 | `redmine_user_id` | integer | No | Defaults to current API key owner |
 | `date_from` | string | No | `YYYY-MM-DD` (default: start of week) |
 | `date_to` | string | No | `YYYY-MM-DD` (default: today) |
+| `offset` | integer | No | Number of entries to skip (default: 0) |
+| `limit` | integer | No | 1–100 (default: 100) |
 
 #### `get-assigned-issues-tool`
 
@@ -160,6 +184,9 @@ All tools that accept `redmine_user_id` resolve it automatically when omitted: f
 | `redmine_user_id` | integer | No | Defaults to current API key owner |
 | `status` | string | No | `open` / `closed` / `all` (default: `open`) |
 | `project_id` | integer | No | Filter to a specific project |
+| `updated_after` | string | No | `YYYY-MM-DD` — only issues updated on or after this date |
+| `offset` | integer | No | Number of issues to skip (default: 0) |
+| `limit` | integer | No | 1–100 (default: 25) |
 
 #### `create-issue-tool`
 
@@ -168,15 +195,16 @@ All tools that accept `redmine_user_id` resolve it automatically when omitted: f
 | `project_id` | integer | Yes | Target project |
 | `subject` | string | Yes | Issue title |
 | `description` | string | No | Detailed description |
-| `assigned_to_id` | integer | No | Redmine user ID |
-| `priority_id` | integer | No | 1=Low 2=Normal 3=High 4=Urgent 5=Immediate |
+| `assigned_to_id` | integer | No | Redmine user ID — use `get-users-tool` |
+| `tracker_id` | integer | No | Tracker ID — use `get-trackers-tool` |
+| `priority_id` | integer | No | Priority ID — use `get-issue-priorities-tool` |
 
 #### `update-issue-status-tool`
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `issue_id` | integer | Yes | Redmine issue number |
-| `status_id` | integer | Yes | 1=New 2=In Progress 3=Resolved 4=Feedback 5=Closed 6=Rejected |
+| `status_id` | integer | Yes | Status ID — use `get-issue-statuses-tool` |
 
 #### `get-project-issues-tool`
 
@@ -185,6 +213,8 @@ All tools that accept `redmine_user_id` resolve it automatically when omitted: f
 | `project_id` | integer | Yes | Redmine project ID |
 | `status` | string | No | `open` / `closed` / `all` (default: `open`) |
 | `assigned_to_id` | integer | No | Filter by assignee |
+| `updated_after` | string | No | `YYYY-MM-DD` — only issues updated on or after this date |
+| `offset` | integer | No | Number of issues to skip (default: 0) |
 | `limit` | integer | No | 1–100 (default: 25) |
 
 #### `check-unlogged-users-tool`
@@ -192,6 +222,8 @@ All tools that accept `redmine_user_id` resolve it automatically when omitted: f
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `date` | string | No | `YYYY-MM-DD` (default: yesterday) |
+
+Automatically fetches all pages of users and time entries for the date to compute the diff. No `offset`/`limit` parameters — the tool handles pagination internally.
 
 ---
 
@@ -228,6 +260,7 @@ app/
   Mcp/
     Concerns/
       CastsApiData.php          — strOf / intOf / floatOf for API response arrays
+      FetchesRedminePages.php   — bounded pagination + user name map for journal history
       ResolvesRedmineUser.php   — user ID resolution chain (request → API → env fallback)
     Servers/
       RedmineServer.php         — registers all tools

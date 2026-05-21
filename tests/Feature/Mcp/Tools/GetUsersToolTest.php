@@ -18,6 +18,7 @@ it('lists users with id, login and full name', function (): void {
                 ['id' => 3, 'login' => 'alice', 'firstname' => 'Alice', 'lastname' => 'Smith'],
                 ['id' => 4, 'login' => 'bob',   'firstname' => 'Bob',   'lastname' => 'Jones'],
             ],
+            'total_count' => 2,
         ], 200),
     ]);
 
@@ -32,8 +33,34 @@ it('lists users with id, login and full name', function (): void {
         ->and($text)->toContain('#4');
 });
 
+it('shows pagination hint when more users exist', function (): void {
+    Http::fake([
+        'redmine.test/users.json*' => Http::response([
+            'users' => [
+                ['id' => 1, 'login' => 'alice', 'firstname' => 'Alice', 'lastname' => 'Smith'],
+            ],
+            'total_count' => 150,
+        ], 200),
+    ]);
+
+    $response = (new GetUsersTool)->handle(
+        new Request(['offset' => 0, 'limit' => 1]),
+        new RedmineService,
+    );
+
+    $text = $response->content()->toArray()['text'];
+
+    expect($response->isError())->toBeFalse()
+        ->and($text)->toContain('150 total')
+        ->and($text)->toContain('offset=1');
+
+    Http::assertSent(fn ($req): bool => str_contains((string) $req->url(), 'offset=0')
+        && str_contains((string) $req->url(), 'limit=1')
+    );
+});
+
 it('returns message when no users found', function (): void {
-    Http::fake(['redmine.test/users.json*' => Http::response(['users' => []], 200)]);
+    Http::fake(['redmine.test/users.json*' => Http::response(['users' => [], 'total_count' => 0], 200)]);
 
     $response = (new GetUsersTool)->handle(new Request([]), new RedmineService);
 

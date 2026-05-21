@@ -18,6 +18,7 @@ it('returns project issues', function (): void {
                 ['id' => 1, 'subject' => 'Task A', 'status' => ['name' => 'New'], 'priority' => ['name' => 'Normal'], 'assigned_to' => ['name' => 'Alice']],
                 ['id' => 2, 'subject' => 'Task B', 'status' => ['name' => 'In Progress'], 'priority' => ['name' => 'High'], 'assigned_to' => ['name' => 'Bob']],
             ],
+            'total_count' => 2,
         ], 200),
     ]);
 
@@ -30,6 +31,28 @@ it('returns project issues', function (): void {
         ->and($response->content()->toArray()['text'])
         ->toContain('Task A')
         ->toContain('Task B');
+});
+
+it('shows pagination hint when more issues exist', function (): void {
+    Http::fake([
+        'redmine.test/issues.json*' => Http::response([
+            'issues' => [
+                ['id' => 1, 'subject' => 'Task A', 'status' => ['name' => 'New'], 'priority' => ['name' => 'Normal'], 'assigned_to' => ['name' => 'Alice']],
+            ],
+            'total_count' => 50,
+        ], 200),
+    ]);
+
+    $response = (new GetProjectIssuesTool)->handle(
+        new Request(['project_id' => 3, 'limit' => 1, 'offset' => 0]),
+        new RedmineService,
+    );
+
+    $text = $response->content()->toArray()['text'];
+
+    expect($response->isError())->toBeFalse()
+        ->and($text)->toContain('50 total issue(s) in project #3')
+        ->and($text)->toContain('offset=1');
 });
 
 it('returns message when no issues', function (): void {

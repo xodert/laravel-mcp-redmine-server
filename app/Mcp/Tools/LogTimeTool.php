@@ -12,7 +12,7 @@ use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
-use Throwable;
+use RuntimeException;
 
 #[Description('Log work time for a Redmine issue. Provide issue ID, hours spent, and a description of work done.')]
 final class LogTimeTool extends Tool
@@ -58,7 +58,7 @@ final class LogTimeTool extends Tool
                 ($user !== null ? sprintf('User:    %s%s', $user, PHP_EOL) : '').
                 ('Comment: '.$comment)
             );
-        } catch (Throwable $throwable) {
+        } catch (RuntimeException $throwable) {
             return Response::error('Failed to log time: '.$throwable->getMessage());
         }
     }
@@ -82,7 +82,7 @@ final class LogTimeTool extends Tool
                 ->description('Date in YYYY-MM-DD format. Defaults to today.')
                 ->default(now()->toDateString()),
             'activity_id' => $schema->integer()
-                ->description('Redmine activity ID (type of work). Omit to use the default activity.'),
+                ->description('Redmine activity ID (type of work). Use get-time-entry-activities-tool to see available activities. Omit to use the default activity.'),
             'user_id' => $schema->integer()
                 ->description('Log time on behalf of another user (requires admin API key). Omit to log as the current API key owner.'),
         ];

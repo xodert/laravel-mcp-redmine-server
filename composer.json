@@ -14,6 +14,7 @@
         "nunomaduro/essentials": "^1.2"
     },
     "require-dev": {
+        "captainhook/captainhook": "^5.29",
         "driftingly/rector-laravel": "^2.3",
         "fakerphp/faker": "^1.24.1",
         "larastan/larastan": "^3.9.6",
@@ -46,7 +47,8 @@
             "composer install",
             "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
             "@php artisan key:generate",
-            "@php artisan migrate --force"
+            "@php artisan migrate --force",
+            "vendor/bin/captainhook install --force --skip-existing"
         ],
         "dev": [
             "Composer\\Config::disableProcessTimeout",
@@ -56,6 +58,7 @@
             "rector",
             "pint --parallel"
         ],
+        "test:quick": "pest --compact --parallel",
         "test:type-coverage": "pest --type-coverage --min=100",
         "test:lint": [
             "pint --parallel --test",

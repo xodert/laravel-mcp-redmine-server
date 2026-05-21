@@ -12,7 +12,7 @@ use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsIdempotent;
-use Throwable;
+use RuntimeException;
 
 #[IsIdempotent]
 #[Description(
@@ -53,7 +53,7 @@ final class UpdateIssueStatusTool extends Tool
             }
 
             return Response::text(implode("\n", $lines));
-        } catch (Throwable $throwable) {
+        } catch (RuntimeException $throwable) {
             return Response::error('Failed to update issue status: '.$throwable->getMessage());
         }
     }

@@ -17,6 +17,7 @@ it('returns assigned issues', function (): void {
             'issues' => [
                 ['id' => 55, 'subject' => 'Fix login', 'status' => ['name' => 'In Progress'], 'priority' => ['name' => 'High'], 'project' => ['id' => 1, 'name' => 'App']],
             ],
+            'total_count' => 1,
         ], 200),
     ]);
 
@@ -27,6 +28,28 @@ it('returns assigned issues', function (): void {
 
     expect($response->isError())->toBeFalse()
         ->and($response->content()->toArray()['text'])->toContain('#55');
+});
+
+it('shows pagination hint when more issues exist', function (): void {
+    Http::fake([
+        'redmine.test/issues.json*' => Http::response([
+            'issues' => [
+                ['id' => 55, 'subject' => 'Fix login', 'status' => ['name' => 'In Progress'], 'priority' => ['name' => 'High'], 'project' => ['id' => 1, 'name' => 'App']],
+            ],
+            'total_count' => 42,
+        ], 200),
+    ]);
+
+    $response = (new GetAssignedIssuesTool)->handle(
+        new Request(['redmine_user_id' => 5, 'limit' => 1, 'offset' => 0]),
+        new RedmineService,
+    );
+
+    $text = $response->content()->toArray()['text'];
+
+    expect($response->isError())->toBeFalse()
+        ->and($text)->toContain('42 total open issue(s)')
+        ->and($text)->toContain('offset=1');
 });
 
 it('passes project_id as server-side filter', function (): void {
@@ -48,9 +71,8 @@ it('passes project_id as server-side filter', function (): void {
     Http::assertSent(fn ($req): bool => str_contains((string) $req->url(), 'project_id=1'));
 });
 
-it('resolves user id from redmine api key when not provided', function (): void {
+it('uses assigned_to_id=me when redmine_user_id is omitted', function (): void {
     Http::fake([
-        'redmine.test/users/current.json' => Http::response(['user' => ['id' => 7, 'login' => 'alice']], 200),
         'redmine.test/issues.json*' => Http::response(['issues' => []], 200),
     ]);
 
@@ -61,7 +83,8 @@ it('resolves user id from redmine api key when not provided', function (): void 
 
     expect($response->isError())->toBeFalse();
 
-    Http::assertSent(fn ($req): bool => str_contains((string) $req->url(), '/users/current.json'));
+    Http::assertSent(fn ($req): bool => str_contains((string) $req->url(), 'assigned_to_id=me'));
+    Http::assertNotSent(fn ($req): bool => str_contains((string) $req->url(), '/users/current.json'));
 });
 
 it('returns message when no issues found', function (): void {

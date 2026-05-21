@@ -5,46 +5,20 @@ declare(strict_types=1);
 namespace App\Mcp\Concerns;
 
 use App\Services\RedmineService;
-use Illuminate\Support\Facades\Log;
 use Laravel\Mcp\Request;
-use RuntimeException;
-use Throwable;
 
 trait ResolvesRedmineUser
 {
     /**
-     * Resolves the Redmine user ID using the following priority:
-     *   1. Explicit `redmine_user_id` argument in the request
-     *   2. GET /users/current.json (works when API key belongs to a personal account)
-     *   3. REDMINE_DEFAULT_USER_ID from config (fallback for instances that restrict /users/current.json)
-     *
-     * @throws RuntimeException when no user ID can be resolved by any method
+     * Returns an explicit Redmine user ID or {@see RedmineService::CURRENT_USER}
+     * so Redmine resolves the API key owner via `user_id=me` / `assigned_to_id=me`.
      */
-    private function resolveRedmineUserId(Request $request, RedmineService $redmine): int
+    private function resolveRedmineUserFilter(Request $request): int|string
     {
-        if ($request->has('redmine_user_id')) {
+        if ($request->filled('redmine_user_id')) {
             return $request->integer('redmine_user_id');
         }
 
-        try {
-            $user = $redmine->getCurrentUser();
-
-            if (! empty($user['id'])) {
-                return is_scalar($user['id']) ? (int) $user['id'] : 0;
-            }
-        } catch (Throwable $throwable) {
-            Log::debug('Could not resolve current Redmine user from API key, falling back to config default.', ['error' => $throwable->getMessage()]);
-        }
-
-        $defaultUserId = config('redmine.default_user_id');
-
-        if ($defaultUserId !== null) {
-            return is_scalar($defaultUserId) ? (int) $defaultUserId : 0;
-        }
-
-        throw new RuntimeException(
-            'Could not resolve Redmine user ID. '.
-            'Either pass "redmine_user_id" explicitly, or set REDMINE_DEFAULT_USER_ID in .env.'
-        );
+        return RedmineService::CURRENT_USER;
     }
 }

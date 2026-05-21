@@ -18,6 +18,7 @@ it('lists projects with id, identifier and name', function (): void {
                 ['id' => 1, 'identifier' => 'backend-api', 'name' => 'Backend API'],
                 ['id' => 2, 'identifier' => 'mobile-app', 'name' => 'Mobile App'],
             ],
+            'total_count' => 2,
         ], 200),
     ]);
 
@@ -32,8 +33,34 @@ it('lists projects with id, identifier and name', function (): void {
         ->and($text)->toContain('#2');
 });
 
+it('shows pagination hint when more projects exist', function (): void {
+    Http::fake([
+        'redmine.test/projects.json*' => Http::response([
+            'projects' => [
+                ['id' => 1, 'identifier' => 'backend-api', 'name' => 'Backend API'],
+            ],
+            'total_count' => 200,
+        ], 200),
+    ]);
+
+    $response = (new GetProjectsTool)->handle(
+        new Request(['offset' => 0, 'limit' => 1]),
+        new RedmineService,
+    );
+
+    $text = $response->content()->toArray()['text'];
+
+    expect($response->isError())->toBeFalse()
+        ->and($text)->toContain('200 total')
+        ->and($text)->toContain('offset=1');
+
+    Http::assertSent(fn ($req): bool => str_contains((string) $req->url(), 'offset=0')
+        && str_contains((string) $req->url(), 'limit=1')
+    );
+});
+
 it('returns message when no projects found', function (): void {
-    Http::fake(['redmine.test/projects.json*' => Http::response(['projects' => []], 200)]);
+    Http::fake(['redmine.test/projects.json*' => Http::response(['projects' => [], 'total_count' => 0], 200)]);
 
     $response = (new GetProjectsTool)->handle(new Request([]), new RedmineService);
 

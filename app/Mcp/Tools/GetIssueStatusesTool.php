@@ -11,7 +11,7 @@ use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
-use Throwable;
+use RuntimeException;
 
 #[Description('List all available issue statuses in this Redmine instance. Call this before using update-issue-status-tool to get valid status IDs.')]
 #[IsReadOnly]
@@ -38,7 +38,7 @@ final class GetIssueStatusesTool extends Tool
             }
 
             return Response::text(implode("\n", $lines));
-        } catch (Throwable $throwable) {
+        } catch (RuntimeException $throwable) {
             return Response::error('Failed to retrieve issue statuses: '.$throwable->getMessage());
         }
     }

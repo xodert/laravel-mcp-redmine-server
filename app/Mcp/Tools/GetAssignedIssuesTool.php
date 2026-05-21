@@ -13,7 +13,7 @@ use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
-use Throwable;
+use RuntimeException;
 
 #[Description('Get issues assigned to a Redmine user, optionally filtered by status.')]
 #[IsReadOnly]
@@ -34,23 +34,33 @@ final class GetAssignedIssuesTool extends Tool
                 'updated_after' => ['nullable', 'date_format:Y-m-d'],
             ]);
 
-            $redmineUserId = $this->resolveRedmineUserId($request, $redmine);
-            $issues = $redmine->getAssignedIssues(
+            $redmineUserId = $this->resolveRedmineUserFilter($request);
+            $status = $request->filled('status') ? $request->string('status')->toString() : 'open';
+            $offset = $request->filled('offset') ? $request->integer('offset') : 0;
+            $limit = $request->filled('limit') ? $request->integer('limit') : 25;
+
+            $result = $redmine->getAssignedIssues(
                 $redmineUserId,
-                $request->filled('status') ? $request->string('status')->toString() : 'open',
-                $request->filled('limit') ? $request->integer('limit') : 25,
-                $request->filled('offset') ? $request->integer('offset') : 0,
+                $status,
+                $limit,
+                $offset,
                 $request->filled('updated_after') ? $request->string('updated_after')->toString() : null,
                 $request->filled('project_id') ? $request->integer('project_id') : null,
             );
 
-            $status = $request->filled('status') ? $request->string('status')->toString() : 'open';
+            $issues = $result['items'];
+            $total = $result['total'];
 
             if ($issues === []) {
                 return Response::text(sprintf('No %s issues assigned to this user.', $status));
             }
 
-            $lines = [count($issues)." {$status} issue(s) assigned:\n"];
+            $nextOffset = $offset + count($issues);
+            $header = $nextOffset < $total
+                ? sprintf('%d total %s issue(s), showing %d–%d. Use offset=%d for the next page.', $total, $status, $offset + 1, $nextOffset, $nextOffset)
+                : sprintf('%d %s issue(s) assigned:', count($issues), $status);
+
+            $lines = [$header."\n"];
 
             foreach ($issues as $issue) {
                 $id = $this->intOf($issue['id']);
@@ -62,7 +72,7 @@ final class GetAssignedIssuesTool extends Tool
             }
 
             return Response::text(implode("\n", $lines));
-        } catch (Throwable $throwable) {
+        } catch (RuntimeException $throwable) {
             return Response::error('Failed to retrieve assigned issues: '.$throwable->getMessage());
         }
     }
@@ -74,7 +84,7 @@ final class GetAssignedIssuesTool extends Tool
     {
         return [
             'redmine_user_id' => $schema->integer()
-                ->description('Redmine user ID. If omitted, resolved from the authenticated token.'),
+                ->description('Redmine user ID. If omitted, returns issues assigned to the API key owner.'),
             'status' => $schema->string()
                 ->enum(['open', 'closed', 'all'])
                 ->description('Issue status filter. Defaults to "open".')

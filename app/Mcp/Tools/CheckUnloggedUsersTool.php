@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Mcp\Tools;
 
 use App\Mcp\Concerns\CastsApiData;
+use App\Mcp\Concerns\FetchesRedminePages;
+use App\Mcp\Concerns\RegistersForRedmineAdmin;
 use App\Services\RedmineService;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
@@ -12,13 +14,15 @@ use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
-use Throwable;
+use RuntimeException;
 
 #[Description('Return a list of Redmine users who have not logged any time for a given date. Useful for identifying who needs to be reminded to fill in their timesheets.')]
 #[IsReadOnly]
 final class CheckUnloggedUsersTool extends Tool
 {
     use CastsApiData;
+    use FetchesRedminePages;
+    use RegistersForRedmineAdmin;
 
     public function handle(Request $request, RedmineService $redmine): Response
     {
@@ -29,20 +33,8 @@ final class CheckUnloggedUsersTool extends Tool
 
             $date = $request->filled('date') ? $request->string('date')->toString() : now()->subDay()->toDateString();
 
-            $allUsers = $redmine->getUsers();
-            $timeLogs = $redmine->getTimeLogsByDate($date);
-
-            $loggedUserIds = [];
-
-            foreach ($timeLogs as $entry) {
-                $userId = $this->intOf(data_get($entry, 'user.id'));
-
-                if ($userId > 0) {
-                    $loggedUserIds[] = $userId;
-                }
-            }
-
-            $loggedUserIds = array_unique($loggedUserIds);
+            $allUsers = $this->fetchAllUsers($redmine);
+            $loggedUserIds = $this->fetchAllLoggedUserIds($redmine, $date);
 
             $unlogged = array_filter(
                 $allUsers,
@@ -67,7 +59,7 @@ final class CheckUnloggedUsersTool extends Tool
                 count($unlogged)." user(s) without time entries on {$date}:\n\n".
                 implode("\n", $names)
             );
-        } catch (Throwable $throwable) {
+        } catch (RuntimeException $throwable) {
             return Response::error('Failed to check unlogged users: '.$throwable->getMessage());
         }
     }

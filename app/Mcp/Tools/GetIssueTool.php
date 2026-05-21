@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Mcp\Tools;
 
 use App\Mcp\Concerns\CastsApiData;
+use App\Mcp\Concerns\FetchesRedminePages;
 use App\Services\RedmineService;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
@@ -12,13 +13,14 @@ use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
-use Throwable;
+use RuntimeException;
 
 #[Description('Get full details of a Redmine issue including its change history (journals).')]
 #[IsReadOnly]
 final class GetIssueTool extends Tool
 {
     use CastsApiData;
+    use FetchesRedminePages;
 
     public function handle(Request $request, RedmineService $redmine): Response
     {
@@ -70,7 +72,7 @@ final class GetIssueTool extends Tool
                     $priorities = array_column($redmine->getIssuePriorities(), 'name', 'id');
 
                     /** @var array<int, string> $users */
-                    $users = array_column($redmine->getUsers(), 'name', 'id');
+                    $users = $this->buildUserNameMap($this->fetchAllUsers($redmine));
                 }
 
                 $lines[] = '';
@@ -120,7 +122,7 @@ final class GetIssueTool extends Tool
             }
 
             return Response::text(implode("\n", $lines));
-        } catch (Throwable $throwable) {
+        } catch (RuntimeException $throwable) {
             return Response::error('Failed to retrieve issue: '.$throwable->getMessage());
         }
     }

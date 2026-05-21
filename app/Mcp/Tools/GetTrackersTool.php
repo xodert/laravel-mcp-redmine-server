@@ -11,7 +11,7 @@ use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
-use Throwable;
+use RuntimeException;
 
 #[Description('List all available issue trackers in this Redmine instance (e.g. Bug, Feature, Support). Call this before using create-issue-tool to get valid tracker_id values.')]
 #[IsReadOnly]
@@ -37,7 +37,7 @@ final class GetTrackersTool extends Tool
             }
 
             return Response::text(implode("\n", $lines));
-        } catch (Throwable $throwable) {
+        } catch (RuntimeException $throwable) {
             return Response::error('Failed to retrieve trackers: '.$throwable->getMessage());
         }
     }

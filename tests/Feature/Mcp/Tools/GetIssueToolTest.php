@@ -175,7 +175,8 @@ it('renders all supported journal detail field types', function (): void {
                         'created_on' => '2026-05-06T00:00:00Z',
                         'notes' => '',
                         'details' => [
-                            ['name' => 'assigned_to_id', 'old_value' => '2', 'new_value' => '1'],
+                            ['name' => 'assigned_to_id', 'old_value' => '2', 'new_value' => '3'],
+                            ['name' => 'assigned_to_id', 'old_value' => '3', 'new_value' => '1'],
                         ],
                     ],
                 ],
@@ -190,9 +191,11 @@ it('renders all supported journal detail field types', function (): void {
             ['id' => 3, 'name' => 'High'],
         ]], 200),
         'redmine.test/users.json*' => Http::response(['users' => [
+            ['id' => 0, 'login' => 'invalid', 'firstname' => 'Skip', 'lastname' => 'Me'],
             ['id' => 1, 'login' => 'alice', 'firstname' => 'Alice', 'lastname' => 'Smith'],
             ['id' => 2, 'login' => 'bob',   'firstname' => 'Bob',   'lastname' => 'Jones'],
-        ]], 200),
+            ['id' => 3, 'login' => 'svc-bot', 'firstname' => '', 'lastname' => ''],
+        ], 'total_count' => 4], 200),
     ]);
 
     $response = (new GetIssueTool)->handle(
@@ -211,7 +214,10 @@ it('renders all supported journal detail field types', function (): void {
         ->and($text)->toContain('New title')
         ->and($text)->toContain('Due date')
         ->and($text)->toContain('2026-02-01')
+        ->and($text)->toContain('Assigned to:')
+        ->and($text)->toContain('Alice Smith')
         ->and($text)->toContain('Bob Jones')
+        ->and($text)->toContain('svc-bot')
         ->and($text)->toContain('new_val')
         ->and($text)->toContain('custom_field');
 });

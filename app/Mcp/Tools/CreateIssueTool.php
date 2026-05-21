@@ -11,7 +11,7 @@ use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
-use Throwable;
+use RuntimeException;
 
 #[Description('Create a new issue (task) in a Redmine project.')]
 final class CreateIssueTool extends Tool
@@ -49,7 +49,7 @@ final class CreateIssueTool extends Tool
                 sprintf('Subject: %s%s', $request->string('subject')->toString(), PHP_EOL).
                 ('URL: '.$url)
             );
-        } catch (Throwable $throwable) {
+        } catch (RuntimeException $throwable) {
             return Response::error('Failed to create issue: '.$throwable->getMessage());
         }
     }

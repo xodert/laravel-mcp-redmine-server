@@ -49,6 +49,23 @@ it('passes tracker_id and priority_id to the api', function (): void {
     });
 });
 
+it('accepts priority_id outside the old hardcoded enum range', function (): void {
+    Http::fake([
+        'redmine.test/issues.json' => Http::response([
+            'issue' => ['id' => 202, 'subject' => 'Custom priority', 'project' => ['id' => 1, 'name' => 'App']],
+        ], 201),
+    ]);
+
+    $response = (new CreateIssueTool)->handle(
+        new Request(['project_id' => 1, 'subject' => 'Custom priority', 'priority_id' => 6]),
+        new RedmineService,
+    );
+
+    expect($response->isError())->toBeFalse();
+
+    Http::assertSent(fn ($req): bool => ($req->data()['issue']['priority_id'] ?? null) === 6);
+});
+
 it('returns error when creation fails', function (): void {
     Http::fake(['redmine.test/issues.json' => Http::response(['errors' => ['Subject cannot be blank']], 422)]);
 

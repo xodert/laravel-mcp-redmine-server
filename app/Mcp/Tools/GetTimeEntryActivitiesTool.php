@@ -11,7 +11,7 @@ use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
-use Throwable;
+use RuntimeException;
 
 #[Description('List all available time entry activity types in this Redmine instance. Call this before using log-time-tool to get valid activity_id values.')]
 #[IsReadOnly]
@@ -38,7 +38,7 @@ final class GetTimeEntryActivitiesTool extends Tool
             }
 
             return Response::text(implode("\n", $lines));
-        } catch (Throwable $throwable) {
+        } catch (RuntimeException $throwable) {
             return Response::error('Failed to retrieve time entry activities: '.$throwable->getMessage());
         }
     }
