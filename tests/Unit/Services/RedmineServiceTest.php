@@ -206,6 +206,26 @@ it('throws a RuntimeException on a 503 connection error', function (): void {
         ->toThrow(RuntimeException::class);
 });
 
+it('filters assigned issues by project_id and updated_after', function (): void {
+    Http::fake([
+        'redmine.test/issues.json*' => Http::response([
+            'issues' => [['id' => 10, 'subject' => 'Task']],
+        ], 200),
+    ]);
+
+    $issues = $this->service->getAssignedIssues(5, 'open', 25, 0, '2026-05-01', 3);
+
+    expect($issues)->toHaveCount(1);
+
+    Http::assertSent(function ($req): bool {
+        $url = (string) $req->url();
+
+        return str_contains($url, 'project_id=3')
+            && str_contains($url, 'updated_on')
+            && str_contains($url, '2026-05-01');
+    });
+});
+
 it('returns empty array when json list key is not an array', function (): void {
     Http::fake([
         'redmine.test/projects.json*' => Http::response(['projects' => null], 200),

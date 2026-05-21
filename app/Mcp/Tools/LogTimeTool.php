@@ -31,6 +31,7 @@ final class LogTimeTool extends Tool
                 'user_id' => ['nullable', 'integer', 'min:1'],
             ]);
 
+            $comment = $request->string('comment')->toString();
             $activityId = $request->filled('activity_id')
                 ? $request->integer('activity_id')
                 : $this->resolveDefaultActivityId($redmine);
@@ -38,13 +39,11 @@ final class LogTimeTool extends Tool
             $entry = $redmine->logTime(
                 $request->integer('issue_id'),
                 $request->float('hours'),
-                $request->string('comment')->toString(),
+                $comment,
                 $request->filled('date') ? $request->string('date')->toString() : null,
                 $activityId,
                 $request->filled('user_id') ? $request->integer('user_id') : null,
             );
-
-            $comment = $request->string('comment')->toString();
             $date = $this->strOf($entry['spent_on'] ?? ($request->filled('date') ? $request->string('date')->toString() : now()->toDateString()));
             $hours = $this->floatOf($entry['hours'] ?? $request->float('hours'));
             $issueId = $this->intOf(data_get($entry, 'issue.id', $request->integer('issue_id')));

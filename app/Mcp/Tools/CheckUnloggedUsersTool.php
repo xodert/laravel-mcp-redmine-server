@@ -25,7 +25,6 @@ final class CheckUnloggedUsersTool extends Tool
         try {
             $request->validate([
                 'date' => ['nullable', 'date_format:Y-m-d'],
-                'project_id' => ['nullable', 'integer', 'min:1'],
             ]);
 
             $date = $request->filled('date') ? $request->string('date')->toString() : now()->subDay()->toDateString();
@@ -82,8 +81,6 @@ final class CheckUnloggedUsersTool extends Tool
             'date' => $schema->string()
                 ->description('Date to check in YYYY-MM-DD format. Defaults to yesterday.')
                 ->default(now()->subDay()->toDateString()),
-            'project_id' => $schema->integer()
-                ->description('Optional: filter users by project membership (not yet applied server-side — returns all active users)'),
         ];
     }
 }

@@ -58,6 +58,10 @@ final class GetIssueTool extends Tool
                     fn (array $j): bool => ! empty($j['details']) || mb_trim($this->strOf($j['notes'] ?? '')) !== ''
                 );
 
+                $statuses = [];
+                $priorities = [];
+                $users = [];
+
                 if ($hasDetails) {
                     $statuses = $redmine->getIssueStatuses();
                     $priorities = $redmine->getIssuePriorities();

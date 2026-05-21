@@ -43,6 +43,39 @@ it('returns message when no issues', function (): void {
     expect($response->content()->toArray()['text'])->toContain('No issues found');
 });
 
+it('passes assigned_to_id, offset and updated_after to the api', function (): void {
+    Http::fake(['redmine.test/issues.json*' => Http::response(['issues' => []], 200)]);
+
+    (new GetProjectIssuesTool)->handle(
+        new Request(['project_id' => 1, 'assigned_to_id' => 7, 'offset' => 25, 'updated_after' => '2026-05-01']),
+        new RedmineService,
+    );
+
+    Http::assertSent(function ($req): bool {
+        $url = (string) $req->url();
+
+        return str_contains($url, 'assigned_to_id=7')
+            && str_contains($url, 'offset=25')
+            && str_contains($url, '2026-05-01');
+    });
+});
+
+it('passes offset and updated_after to the api', function (): void {
+    Http::fake(['redmine.test/issues.json*' => Http::response(['issues' => []], 200)]);
+
+    (new GetProjectIssuesTool)->handle(
+        new Request(['project_id' => 1, 'offset' => 25, 'updated_after' => '2026-05-01']),
+        new RedmineService,
+    );
+
+    Http::assertSent(function ($req): bool {
+        $url = (string) $req->url();
+
+        return str_contains($url, 'offset=25')
+            && str_contains($url, '2026-05-01');
+    });
+});
+
 it('returns error on api failure', function (): void {
     Http::fake(['redmine.test/issues.json*' => Http::response(null, 500)]);
 

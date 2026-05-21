@@ -28,6 +28,8 @@ final class GetProjectIssuesTool extends Tool
                 'status' => ['nullable', 'in:open,closed,all'],
                 'assigned_to_id' => ['nullable', 'integer', 'min:1'],
                 'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
+                'offset' => ['nullable', 'integer', 'min:0'],
+                'updated_after' => ['nullable', 'date_format:Y-m-d'],
             ]);
 
             $projectId = $request->integer('project_id');
@@ -36,6 +38,8 @@ final class GetProjectIssuesTool extends Tool
                 'status' => $request->filled('status') ? $request->string('status')->toString() : 'open',
                 'assigned_to_id' => $request->filled('assigned_to_id') ? $request->integer('assigned_to_id') : null,
                 'limit' => $request->filled('limit') ? $request->integer('limit') : 25,
+                'offset' => $request->filled('offset') ? $request->integer('offset') : 0,
+                'updated_after' => $request->filled('updated_after') ? $request->string('updated_after')->toString() : null,
             ]);
 
             if ($issues === []) {
@@ -77,6 +81,11 @@ final class GetProjectIssuesTool extends Tool
             'limit' => $schema->integer()
                 ->description('Maximum number of issues to return (1–100). Defaults to 25.')
                 ->default(25),
+            'offset' => $schema->integer()
+                ->description('Number of issues to skip for pagination. Defaults to 0.')
+                ->default(0),
+            'updated_after' => $schema->string()
+                ->description('Return only issues updated on or after this date (YYYY-MM-DD).'),
         ];
     }
 }

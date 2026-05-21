@@ -29,11 +29,10 @@ it('returns assigned issues', function (): void {
         ->and($response->content()->toArray()['text'])->toContain('#55');
 });
 
-it('filters by project_id', function (): void {
+it('passes project_id as server-side filter', function (): void {
     Http::fake([
         'redmine.test/issues.json*' => Http::response([
             'issues' => [
-                ['id' => 10, 'subject' => 'Task A', 'status' => ['name' => 'New'], 'priority' => ['name' => 'Normal'], 'project' => ['id' => 2, 'name' => 'Other']],
                 ['id' => 11, 'subject' => 'Task B', 'status' => ['name' => 'New'], 'priority' => ['name' => 'Normal'], 'project' => ['id' => 1, 'name' => 'App']],
             ],
         ], 200),
@@ -44,9 +43,9 @@ it('filters by project_id', function (): void {
         new RedmineService,
     );
 
-    expect($response->content()->toArray()['text'])
-        ->toContain('#11')
-        ->not->toContain('#10');
+    expect($response->content()->toArray()['text'])->toContain('#11');
+
+    Http::assertSent(fn ($req): bool => str_contains((string) $req->url(), 'project_id=1'));
 });
 
 it('resolves user id from redmine api key when not provided', function (): void {
@@ -74,6 +73,34 @@ it('returns message when no issues found', function (): void {
     );
 
     expect($response->content()->toArray()['text'])->toContain('No open issues');
+});
+
+it('passes limit, offset and updated_after to the api', function (): void {
+    Http::fake(['redmine.test/issues.json*' => Http::response(['issues' => []], 200)]);
+
+    (new GetAssignedIssuesTool)->handle(
+        new Request(['redmine_user_id' => 5, 'limit' => 10, 'offset' => 20, 'updated_after' => '2026-05-01']),
+        new RedmineService,
+    );
+
+    Http::assertSent(function ($req): bool {
+        $url = (string) $req->url();
+
+        return str_contains($url, 'limit=10')
+            && str_contains($url, 'offset=20')
+            && str_contains($url, '2026-05-01');
+    });
+});
+
+it('filters by project_id server-side', function (): void {
+    Http::fake(['redmine.test/issues.json*' => Http::response(['issues' => []], 200)]);
+
+    (new GetAssignedIssuesTool)->handle(
+        new Request(['redmine_user_id' => 5, 'project_id' => 3]),
+        new RedmineService,
+    );
+
+    Http::assertSent(fn ($req): bool => str_contains((string) $req->url(), 'project_id=3'));
 });
 
 it('returns error on api failure', function (): void {

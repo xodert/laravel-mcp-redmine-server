@@ -59,3 +59,15 @@ arch('commands are final')
 arch('CreateMcpToken command exists and is a command')
     ->expect(CreateMcpToken::class)
     ->toExtend(Command::class);
+
+arch('middleware classes are final')
+    ->expect('App\Http\Middleware')
+    ->toBeFinal();
+
+arch('services are readonly')
+    ->expect('App\Services')
+    ->toBeReadonly();
+
+arch('MCP concerns are traits')
+    ->expect('App\Mcp\Concerns')
+    ->toBeTraits();

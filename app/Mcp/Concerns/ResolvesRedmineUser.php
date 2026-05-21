@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Mcp\Concerns;
 
 use App\Services\RedmineService;
+use Illuminate\Support\Facades\Log;
 use Laravel\Mcp\Request;
 use RuntimeException;
 use Throwable;
@@ -31,8 +32,8 @@ trait ResolvesRedmineUser
             if (! empty($user['id'])) {
                 return is_scalar($user['id']) ? (int) $user['id'] : 0;
             }
-        } catch (Throwable) {
-            // Fall through to config default
+        } catch (Throwable $throwable) {
+            Log::debug('Could not resolve current Redmine user from API key, falling back to config default.', ['error' => $throwable->getMessage()]);
         }
 
         $defaultUserId = config('redmine.default_user_id');

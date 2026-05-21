@@ -71,13 +71,30 @@ final readonly class RedmineService extends AbstractHttpService
      * @throws ConnectionException
      * @throws RuntimeException
      */
-    public function getAssignedIssues(int $redmineUserId, string $status = 'open'): array
-    {
-        $response = $this->get('/issues.json', [
+    public function getAssignedIssues(
+        int $redmineUserId,
+        string $status = 'open',
+        int $limit = 25,
+        int $offset = 0,
+        ?string $updatedAfter = null,
+        ?int $projectId = null,
+    ): array {
+        $params = [
             'assigned_to_id' => $redmineUserId,
             'status_id' => $status,
-            'limit' => 100,
-        ]);
+            'limit' => $limit,
+            'offset' => $offset,
+        ];
+
+        if ($projectId !== null) {
+            $params['project_id'] = $projectId;
+        }
+
+        if ($updatedAfter !== null) {
+            $params['updated_on'] = '>='.$updatedAfter;
+        }
+
+        $response = $this->get('/issues.json', $params);
         $this->assertSuccessful(__FUNCTION__, $response);
 
         return $this->jsonList($response, 'issues');
@@ -132,13 +149,20 @@ final readonly class RedmineService extends AbstractHttpService
      */
     public function getProjectIssues(int $projectId, array $filters = []): array
     {
-        $params = array_merge([
+        $params = [
             'project_id' => $projectId,
-            'limit' => $filters['limit'] ?? 25,
-        ], array_filter([
             'status_id' => $filters['status'] ?? 'open',
-            'assigned_to_id' => $filters['assigned_to_id'] ?? null,
-        ], fn (mixed $v): bool => $v !== null));
+            'limit' => $filters['limit'] ?? 25,
+            'offset' => $filters['offset'] ?? 0,
+        ];
+
+        if (isset($filters['assigned_to_id'])) {
+            $params['assigned_to_id'] = $filters['assigned_to_id'];
+        }
+
+        if (isset($filters['updated_after']) && is_string($filters['updated_after'])) {
+            $params['updated_on'] = '>='.$filters['updated_after'];
+        }
 
         $response = $this->get('/issues.json', $params);
         $this->assertSuccessful(__FUNCTION__, $response);

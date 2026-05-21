@@ -29,19 +29,22 @@ final class GetAssignedIssuesTool extends Tool
                 'redmine_user_id' => ['nullable', 'integer', 'min:1'],
                 'status' => ['nullable', 'in:open,closed,all'],
                 'project_id' => ['nullable', 'integer', 'min:1'],
+                'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
+                'offset' => ['nullable', 'integer', 'min:0'],
+                'updated_after' => ['nullable', 'date_format:Y-m-d'],
             ]);
 
             $redmineUserId = $this->resolveRedmineUserId($request, $redmine);
-            $status = $request->filled('status') ? $request->string('status')->toString() : 'open';
-            $issues = $redmine->getAssignedIssues($redmineUserId, $status);
+            $issues = $redmine->getAssignedIssues(
+                $redmineUserId,
+                $request->filled('status') ? $request->string('status')->toString() : 'open',
+                $request->filled('limit') ? $request->integer('limit') : 25,
+                $request->filled('offset') ? $request->integer('offset') : 0,
+                $request->filled('updated_after') ? $request->string('updated_after')->toString() : null,
+                $request->filled('project_id') ? $request->integer('project_id') : null,
+            );
 
-            if ($request->filled('project_id')) {
-                $projectId = $request->integer('project_id');
-                $issues = array_filter(
-                    $issues,
-                    fn (array $i): bool => $this->intOf(data_get($i, 'project.id')) === $projectId
-                );
-            }
+            $status = $request->filled('status') ? $request->string('status')->toString() : 'open';
 
             if ($issues === []) {
                 return Response::text(sprintf('No %s issues assigned to this user.', $status));
@@ -78,6 +81,14 @@ final class GetAssignedIssuesTool extends Tool
                 ->default('open'),
             'project_id' => $schema->integer()
                 ->description('Filter results to a specific project ID'),
+            'updated_after' => $schema->string()
+                ->description('Return only issues updated on or after this date (YYYY-MM-DD). Useful for "what changed recently".'),
+            'limit' => $schema->integer()
+                ->description('Number of issues to return (1–100). Defaults to 25.')
+                ->default(25),
+            'offset' => $schema->integer()
+                ->description('Number of issues to skip for pagination. Defaults to 0.')
+                ->default(0),
         ];
     }
 }
