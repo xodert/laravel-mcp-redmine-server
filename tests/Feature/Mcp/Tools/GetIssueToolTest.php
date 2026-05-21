@@ -170,6 +170,14 @@ it('renders all supported journal detail field types', function (): void {
                             ['name' => 'custom_field',   'old_value' => 'old_val', 'new_value' => 'new_val'],
                         ],
                     ],
+                    [
+                        'user' => ['name' => 'Bob Jones'],
+                        'created_on' => '2026-05-06T00:00:00Z',
+                        'notes' => '',
+                        'details' => [
+                            ['name' => 'assigned_to_id', 'old_value' => '2', 'new_value' => '1'],
+                        ],
+                    ],
                 ],
             ],
         ], 200),
