@@ -109,3 +109,109 @@ it('returns error when issue not found', function (): void {
     expect($response->isError())->toBeTrue()
         ->and($response->content()->toArray()['text'])->toContain('Failed to retrieve issue');
 });
+
+it('skips journal entries that have no details and no notes', function (): void {
+    Http::fake([
+        'redmine.test/issues/15.json*' => Http::response([
+            'issue' => [
+                'id' => 15,
+                'subject' => 'Test issue',
+                'project' => ['name' => 'App'],
+                'status' => ['name' => 'New'],
+                'priority' => ['name' => 'Normal'],
+                'author' => ['name' => 'Alice'],
+                'created_on' => '2026-05-01T00:00:00Z',
+                'updated_on' => '2026-05-01T00:00:00Z',
+                'done_ratio' => 0,
+                'journals' => [
+                    ['user' => ['name' => 'Bob'], 'created_on' => '2026-05-02T00:00:00Z', 'notes' => '', 'details' => []],
+                ],
+            ],
+        ], 200),
+    ]);
+
+    $response = (new GetIssueTool)->handle(
+        new Request(['issue_id' => 15]),
+        new RedmineService,
+    );
+
+    $text = $response->content()->toArray()['text'];
+
+    expect($response->isError())->toBeFalse()
+        ->and($text)->toContain('Change History')
+        ->and($text)->not->toContain('Bob');
+});
+
+it('renders all supported journal detail field types', function (): void {
+    Http::fake([
+        'redmine.test/issues/30.json*' => Http::response([
+            'issue' => [
+                'id' => 30,
+                'subject' => 'Field types test',
+                'project' => ['name' => 'App'],
+                'status' => ['name' => 'New'],
+                'priority' => ['name' => 'Normal'],
+                'author' => ['name' => 'Alice'],
+                'created_on' => '2026-05-01T00:00:00Z',
+                'updated_on' => '2026-05-01T00:00:00Z',
+                'done_ratio' => 0,
+                'journals' => [
+                    [
+                        'user' => ['name' => 'Alice'],
+                        'created_on' => '2026-05-05T00:00:00Z',
+                        'notes' => '',
+                        'details' => [
+                            ['name' => 'priority_id',    'old_value' => '1', 'new_value' => '3'],
+                            ['name' => 'assigned_to_id', 'old_value' => '1', 'new_value' => '2'],
+                            ['name' => 'done_ratio',     'old_value' => '0', 'new_value' => '50'],
+                            ['name' => 'subject',        'old_value' => 'Old title', 'new_value' => 'New title'],
+                            ['name' => 'description',    'old_value' => 'Old description text', 'new_value' => 'New description text'],
+                            ['name' => 'due_date',       'old_value' => '2026-01-01', 'new_value' => '2026-02-01'],
+                            ['name' => 'custom_field',   'old_value' => 'old_val', 'new_value' => 'new_val'],
+                        ],
+                    ],
+                    [
+                        'user' => ['name' => 'Bob Jones'],
+                        'created_on' => '2026-05-06T00:00:00Z',
+                        'notes' => '',
+                        'details' => [
+                            ['name' => 'assigned_to_id', 'old_value' => '2', 'new_value' => '1'],
+                        ],
+                    ],
+                ],
+            ],
+        ], 200),
+        'redmine.test/issue_statuses.json' => Http::response(['issue_statuses' => [
+            ['id' => 1, 'name' => 'New'],
+            ['id' => 3, 'name' => 'Resolved'],
+        ]], 200),
+        'redmine.test/enumerations/issue_priorities.json' => Http::response(['issue_priorities' => [
+            ['id' => 1, 'name' => 'Normal'],
+            ['id' => 3, 'name' => 'High'],
+        ]], 200),
+        'redmine.test/users.json*' => Http::response(['users' => [
+            ['id' => 1, 'login' => 'alice', 'firstname' => 'Alice', 'lastname' => 'Smith'],
+            ['id' => 2, 'login' => 'bob',   'firstname' => 'Bob',   'lastname' => 'Jones'],
+        ]], 200),
+    ]);
+
+    $response = (new GetIssueTool)->handle(
+        new Request(['issue_id' => 30]),
+        new RedmineService,
+    );
+
+    $text = $response->content()->toArray()['text'];
+
+    expect($response->isError())->toBeFalse()
+        ->and($text)->toContain('Priority')
+        ->and($text)->toContain('High')
+        ->and($text)->toContain('Done')
+        ->and($text)->toContain('50')
+        ->and($text)->toContain('Subject')
+        ->and($text)->toContain('New title')
+        ->and($text)->toContain('Due date')
+        ->and($text)->toContain('2026-02-01')
+        ->and($text)->toContain('Bob Jones')
+        ->and($text)->toContain('new_val')
+        ->and($text)->toContain('custom_field');
+});

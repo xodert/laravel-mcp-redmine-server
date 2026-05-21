@@ -54,3 +54,15 @@ it('reports all logged when everyone has entries', function (): void {
 
     expect($response->content()->toArray()['text'])->toContain('All users have logged time');
 });
+
+it('returns error on api failure', function (): void {
+    Http::fake(['redmine.test/users.json*' => Http::response(null, 500)]);
+
+    $response = (new CheckUnloggedUsersTool)->handle(
+        new Request(['date' => '2026-05-18']),
+        new RedmineService,
+    );
+
+    expect($response->isError())->toBeTrue()
+        ->and($response->content()->toArray()['text'])->toContain('Failed to check unlogged users');
+});

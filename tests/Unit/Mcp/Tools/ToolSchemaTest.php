@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Mcp\Tools\CheckUnloggedUsersTool;
 use App\Mcp\Tools\CreateIssueTool;
 use App\Mcp\Tools\GetAssignedIssuesTool;
+use App\Mcp\Tools\GetIssueTool;
 use App\Mcp\Tools\GetMyTimesTool;
 use App\Mcp\Tools\GetProjectIssuesTool;
 use App\Mcp\Tools\LogTimeTool;
@@ -15,6 +16,7 @@ dataset('tools', [
     'LogTimeTool' => LogTimeTool::class,
     'GetMyTimesTool' => GetMyTimesTool::class,
     'GetAssignedIssuesTool' => GetAssignedIssuesTool::class,
+    'GetIssueTool' => GetIssueTool::class,
     'CreateIssueTool' => CreateIssueTool::class,
     'UpdateIssueStatusTool' => UpdateIssueStatusTool::class,
     'GetProjectIssuesTool' => GetProjectIssuesTool::class,
