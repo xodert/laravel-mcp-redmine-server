@@ -87,4 +87,14 @@ it('uses first activity when no default activity is configured', function (): vo
 
     expect($response->isError())->toBeFalse()
         ->and($response->content()->toArray()['text'])->toContain('Time logged successfully');
+
+    Http::assertSent(function ($request): bool {
+        if (! str_contains((string) $request->url(), 'redmine.test/time_entries.json')) {
+            return false;
+        }
+
+        $payload = $request->data();
+
+        return isset($payload['time_entry']['activity_id']) && $payload['time_entry']['activity_id'] === 5;
+    });
 });

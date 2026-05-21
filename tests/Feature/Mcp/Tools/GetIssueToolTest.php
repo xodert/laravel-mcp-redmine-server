@@ -196,8 +196,14 @@ it('renders all supported journal detail field types', function (): void {
 
     expect($response->isError())->toBeFalse()
         ->and($text)->toContain('Priority')
+        ->and($text)->toContain('High')
         ->and($text)->toContain('Done')
+        ->and($text)->toContain('50')
         ->and($text)->toContain('Subject')
+        ->and($text)->toContain('New title')
         ->and($text)->toContain('Due date')
+        ->and($text)->toContain('2026-02-01')
+        ->and($text)->toContain('Bob Jones')
+        ->and($text)->toContain('new_val')
         ->and($text)->toContain('custom_field');
 });
