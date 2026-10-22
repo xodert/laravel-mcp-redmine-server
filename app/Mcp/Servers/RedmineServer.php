@@ -20,6 +20,7 @@ use App\Mcp\Tools\GetTrackersTool;
 use App\Mcp\Tools\GetUsersTool;
 use App\Mcp\Tools\LogTimeTool;
 use App\Mcp\Tools\UpdateIssueStatusTool;
+use App\Mcp\Tools\UpdateIssueTool;
 use Laravel\Mcp\Server;
 use Laravel\Mcp\Server\Attributes\Instructions;
 use Laravel\Mcp\Server\Attributes\Name;
@@ -50,6 +51,7 @@ final class RedmineServer extends Server
         GetAssignedIssuesTool::class,
         CreateIssueTool::class,
         UpdateIssueStatusTool::class,
+        UpdateIssueTool::class,
         DeleteIssueTool::class,
         DeleteTimeEntryTool::class,
         GetProjectIssuesTool::class,

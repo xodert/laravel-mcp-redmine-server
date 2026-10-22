@@ -157,6 +157,40 @@ it('throws when updating status of a non-existent issue', function (): void {
         ->toThrow(RuntimeException::class, 'not found');
 });
 
+it('updates issue notes and assignee', function (): void {
+    Http::fake([
+        'redmine.test/issues/55.json' => Http::response(null, 204),
+    ]);
+
+    $result = $this->service->updateIssue(55, 'Handing this off', 7);
+
+    expect($result['issue_id'])->toBe(55);
+
+    Http::assertSent(fn ($req): bool => str_contains((string) $req->url(), '/issues/55.json')
+        && $req->method() === 'PUT'
+        && $req->data() === ['issue' => ['notes' => 'Handing this off', 'assigned_to_id' => 7]]
+    );
+});
+
+it('omits unset fields when updating an issue', function (): void {
+    Http::fake([
+        'redmine.test/issues/55.json' => Http::response(null, 204),
+    ]);
+
+    $this->service->updateIssue(55, notes: 'Just a comment');
+
+    Http::assertSent(fn ($req): bool => $req->data() === ['issue' => ['notes' => 'Just a comment']]);
+});
+
+it('throws when updating a non-existent issue', function (): void {
+    Http::fake([
+        'redmine.test/issues/9999.json' => Http::response(null, 404),
+    ]);
+
+    expect(fn () => $this->service->updateIssue(9999, 'Note'))
+        ->toThrow(RuntimeException::class, 'not found');
+});
+
 it('retrieves project issues', function (): void {
     Http::fake([
         'redmine.test/issues.json*' => Http::response([

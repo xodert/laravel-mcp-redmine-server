@@ -111,7 +111,7 @@ it('omits admin-only tools from tools list for non-admin api keys', function ():
     expect($toolNames)->toContain('get-projects-tool')
         ->and($toolNames)->not->toContain('get-users-tool')
         ->and($toolNames)->not->toContain('check-unlogged-users-tool')
-        ->and($toolNames)->toHaveCount(14);
+        ->and($toolNames)->toHaveCount(15);
 });
 
 it('includes admin-only tools in tools list for admin api keys', function (): void {
@@ -151,5 +151,5 @@ it('includes admin-only tools in tools list for admin api keys', function (): vo
 
     expect($toolNames)->toContain('get-users-tool')
         ->and($toolNames)->toContain('check-unlogged-users-tool')
-        ->and($toolNames)->toHaveCount(16);
+        ->and($toolNames)->toHaveCount(17);
 });

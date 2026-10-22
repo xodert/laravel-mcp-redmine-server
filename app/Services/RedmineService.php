@@ -166,6 +166,29 @@ final readonly class RedmineService extends AbstractHttpService
     }
 
     /**
+     * @return array{issue_id: int}
+     *
+     * @throws ConnectionException
+     * @throws RuntimeException
+     */
+    public function updateIssue(int $issueId, ?string $notes = null, ?int $assignedToId = null): array
+    {
+        $payload = [
+            'issue' => array_filter([
+                'notes' => $notes,
+                'assigned_to_id' => $assignedToId,
+            ], fn (string|int|null $v): bool => $v !== null && $v !== ''),
+        ];
+
+        $response = $this->put(sprintf('/issues/%d.json', $issueId), $payload);
+
+        throw_if($response->status() === 404, RuntimeException::class, sprintf('updateIssue: Issue #%d not found.', $issueId));
+        $this->assertSuccessful(__FUNCTION__, $response);
+
+        return ['issue_id' => $issueId];
+    }
+
+    /**
      * @param  array<string, mixed>  $filters
      * @return array{items: list<array<string, mixed>>, total: int}
      *

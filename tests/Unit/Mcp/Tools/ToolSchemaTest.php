@@ -16,6 +16,7 @@ use App\Mcp\Tools\GetTrackersTool;
 use App\Mcp\Tools\GetUsersTool;
 use App\Mcp\Tools\LogTimeTool;
 use App\Mcp\Tools\UpdateIssueStatusTool;
+use App\Mcp\Tools\UpdateIssueTool;
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
 
 dataset('toolsWithSchema', [
@@ -25,6 +26,7 @@ dataset('toolsWithSchema', [
     'GetIssueTool' => GetIssueTool::class,
     'CreateIssueTool' => CreateIssueTool::class,
     'UpdateIssueStatusTool' => UpdateIssueStatusTool::class,
+    'UpdateIssueTool' => UpdateIssueTool::class,
     'GetProjectIssuesTool' => GetProjectIssuesTool::class,
     'CheckUnloggedUsersTool' => CheckUnloggedUsersTool::class,
     'GetUsersTool' => GetUsersTool::class,

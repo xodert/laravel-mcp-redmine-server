@@ -187,6 +187,7 @@ All tools that accept `redmine_user_id` resolve it automatically when omitted: f
 | `log-time-tool` | No | Log work time on an issue |
 | `create-issue-tool` | No | Create a new issue |
 | `update-issue-status-tool` | No | Change issue status |
+| `update-issue-tool` | No | Add a note and/or reassign an issue |
 | `delete-issue-tool` | No | Permanently delete an issue (irreversible) |
 | `delete-time-entry-tool` | No | Permanently delete a time entry (irreversible) |
 
@@ -259,6 +260,16 @@ List tools that return more than one page include a pagination hint in the respo
 |---|---|---|---|
 | `issue_id` | integer | Yes | Redmine issue number |
 | `status_id` | integer | Yes | Status ID — use `get-issue-statuses-tool` |
+
+#### `update-issue-tool`
+
+At least one of `notes` or `assigned_to_id` is required.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `issue_id` | integer | Yes | Redmine issue number |
+| `notes` | string | No | Comment to add to the issue history |
+| `assigned_to_id` | integer | No | Redmine user ID — use `get-users-tool` |
 
 #### `delete-issue-tool`
 

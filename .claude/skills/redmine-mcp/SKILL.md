@@ -2,7 +2,7 @@
 
 ## When to activate this skill
 
-Activate whenever you need to interact with Redmine: create or delete issues, delete time entries, update statuses, log time, list projects or users, or check time-tracking compliance.
+Activate whenever you need to interact with Redmine: create or delete issues, delete time entries, update statuses, add notes to or reassign issues, log time, list projects or users, or check time-tracking compliance.
 
 ---
 
@@ -43,6 +43,7 @@ As an alternative to `X-Redmine-API-Key`, you can authenticate with Redmine cred
 | `get-project-issues-tool` | Issues in a project. Filterable by status, assignee, `updated_after`. |
 | `create-issue-tool` | Create a new issue in a project. |
 | `update-issue-status-tool` | Change an issue's status. |
+| `update-issue-tool` | Add a note (comment) to an issue and/or reassign it. Provide `notes`, `assigned_to_id`, or both. |
 | `delete-issue-tool` | Permanently delete an issue. **Irreversible — always confirm with the user first.** |
 
 ### Time Tracking
@@ -64,6 +65,7 @@ Redmine tools require integer IDs, not names. Resolve them with discovery tools 
 |----------------|------------|
 | `create-issue-tool` | `get-projects-tool` → `get-trackers-tool` → `get-issue-priorities-tool` |
 | `update-issue-status-tool` | `get-issue-statuses-tool` |
+| `update-issue-tool` | `get-issue-tool` (confirm the issue and its current assignee) |
 | `log-time-tool` (with activity) | `get-time-entry-activities-tool` |
 | any tool with `assigned_to_id` | `get-users-tool` (admin key required) |
 | `create-issue-tool` with `assigned_to_id` | verify the assignee is a project member — see **Assignee validation** below |
@@ -101,7 +103,18 @@ get-issue-statuses-tool     → find the status ID for "Closed" or "Resolved"
 update-issue-status-tool    → apply the status change
 ```
 
-### 4. Delete an issue
+### 4. Add a note or reassign an issue
+
+```
+get-issue-tool              → confirm the issue, current assignee, and history
+get-users-tool              → find assigned_to_id (only when reassigning, admin key)
+[user confirms the note text and/or new assignee]
+update-issue-tool           → add the note and/or reassign
+```
+
+The response shows the assignee change (`old → new`) and the note that was added. If it returns **"Assignment was NOT applied"**, see **Assignee validation** below.
+
+### 5. Delete an issue
 
 ```
 get-issue-tool              → fetch details, show to user for confirmation
@@ -109,14 +122,14 @@ get-issue-tool              → fetch details, show to user for confirmation
 delete-issue-tool           → permanently delete
 ```
 
-### 5. Check time-tracking compliance
+### 6. Check time-tracking compliance
 
 ```
 check-unlogged-users-tool   → find users with no time entries on a date
 get-my-times-tool           → drill into a specific user's entries for context
 ```
 
-### 6. Delete a time entry
+### 7. Delete a time entry
 
 ```
 get-my-times-tool           → find the entry ID (shown as ID:<n>)
@@ -131,14 +144,16 @@ delete-time-entry-tool      → permanently delete the entry
 When the user asks to assign an issue to a specific person:
 
 1. Resolve the user ID with `get-users-tool`.
-2. Call `create-issue-tool` with `assigned_to_id`.
+2. Call `create-issue-tool` (new issue) or `update-issue-tool` (existing issue) with `assigned_to_id`.
 3. If Redmine returns `HTTP 422 — Assignee is invalid`, the user is **not a member of that project** (or the ID is wrong).
+4. If `update-issue-tool` returns **"Assignment was NOT applied"**, Redmine accepted the request but silently ignored `assigned_to_id`. The acting API user cannot edit that issue — usually the role's **Edit issues** permission does not cover the issue's tracker, or the workflow makes Assignee read-only. Any note in the same call was still added.
 
 **Forbidden workarounds — never do these:**
 
 - Retry `create-issue-tool` **without** `assigned_to_id` to "complete" the batch.
 - Create the issue unassigned and assume it can be fixed later.
 - Silently skip reporting the failed project.
+- Retry a failed `update-issue-tool` reassignment through another MCP identity, or report it as done.
 
 Instead: stop, name the project and assignee, explain the likely cause, and ask the user how to proceed.
 

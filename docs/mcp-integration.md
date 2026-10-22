@@ -185,9 +185,12 @@ The `mcp` service uses `REDMINE_BASE_URL=http://redmine:3000` to reach Redmine o
 | `log-time-tool` | No | Log work time on an issue |
 | `create-issue-tool` | No | Create a new issue |
 | `update-issue-status-tool` | No | Change issue status |
+| `update-issue-tool` | No | Add a note and/or reassign an issue |
 | `check-unlogged-users-tool` | Yes | Find users with no time entries on a date |
 
 Call the reference tools before using IDs in mutating tools — Redmine instance IDs are not portable across installations.
+
+Redmine silently drops issue fields the acting user may not edit and still returns success. `update-issue-tool` re-reads the issue after saving and returns an error ("Assignment was NOT applied") when the saved assignee is not the one requested. The usual cause is a role whose **Edit issues** permission does not cover the issue's tracker (Administration → Roles and permissions → Trackers), or a workflow that makes Assignee read-only. Notes need only **Add notes**, so a note in the same call is still saved.
 
 When `redmine_user_id` is omitted from tools that need it, the server resolves the current user automatically via `/users/current.json` using the token from `X-Redmine-API-Key`. Falls back to `REDMINE_DEFAULT_USER_ID` if the endpoint returns 403.
 
